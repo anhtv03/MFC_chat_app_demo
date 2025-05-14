@@ -69,7 +69,7 @@ BOOL chatDlg::OnInitDialog() {
 
 	for (const auto& item : m_messages)
 	{
-		_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), item.content);
+		//_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), item.content);
 	}
 
 	//===============set chat content=================
@@ -95,7 +95,7 @@ void chatDlg::OnBnClickedBtnSend()
 	}
 
 	Message newMsg;
-	newMsg.id = _T("11");
+	/*newMsg.id = _T("11");
 	newMsg.myId = _T("1");
 	CString friendIdStr;
 	friendIdStr.Format(_T("%d"), m_friendId);
@@ -103,10 +103,10 @@ void chatDlg::OnBnClickedBtnSend()
 	newMsg.content = content;
 	newMsg.isSend = 1;
 	newMsg.createdAt = CTime::GetCurrentTime();
-	newMsg.messageType = 0; 
+	newMsg.messageType = 0; */
 
-	m_messages.push_back(newMsg);
-	_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), newMsg.content);
+	//m_messages.push_back(newMsg);
+	//_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), newMsg.content);
 	_idc_edt_message.SetWindowText(_T(""));
 
 }

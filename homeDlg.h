@@ -3,8 +3,10 @@
 #include <afxwin.h>
 #include <gdiplus.h>
 #include "itemFriendStyle.h"
+#include "models/json.hpp"
 #pragma comment(lib, "gdiplus.lib")
 
+using json = nlohmann::json;
 using namespace Gdiplus;
 
 // homeDlg dialog
@@ -34,6 +36,7 @@ public:
 	HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	ULONG_PTR m_gdiplusToken;
 	Image* m_avatarImage;
+	BOOL getRequest(const uri& endpoint, CString& token, json& response, CString& errorMessage);
 
 private:
 	CStatic _txt_title;

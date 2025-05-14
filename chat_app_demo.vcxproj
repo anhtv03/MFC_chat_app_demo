@@ -207,6 +207,7 @@
     <ClInclude Include="registerDlg.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="TokenManager.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
@@ -216,7 +217,6 @@
     <ClCompile Include="loginDlg.cpp" />
     <ClCompile Include="homeDlg.cpp" />
     <ClCompile Include="itemFriendStyle.cpp" />
-    <ClCompile Include="Message.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -234,6 +234,10 @@
     <None Include="res\chatappdemo.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="assets\emoji.png.ico" />
+    <Image Include="assets\file.png.ico" />
+    <Image Include="assets\Image.png.ico" />
+    <Image Include="assets\sending.png.ico" />
     <Image Include="C:\Users\Admin\Downloads\emoji.png.ico" />
     <Image Include="C:\Users\Admin\Downloads\file.png.ico" />
     <Image Include="C:\Users\Admin\Downloads\Image.png.ico" />

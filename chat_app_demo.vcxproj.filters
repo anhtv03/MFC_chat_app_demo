@@ -63,6 +63,9 @@
     <ClInclude Include="util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TokenManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="chat_app_demo.cpp">
@@ -88,9 +91,6 @@
     </ClCompile>
     <ClCompile Include="chatDlg.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Message.cpp">
-      <Filter>models</Filter>
     </ClCompile>
     <ClCompile Include="util.cpp">
       <Filter>Source Files</Filter>
@@ -121,6 +121,18 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="C:\Users\Admin\Downloads\sending.png.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="assets\Image.png.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="assets\file.png.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="assets\emoji.png.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="assets\sending.png.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

@@ -24,7 +24,7 @@ public:
 
 		for (const auto& item : data)
 		{
-			Message msg;
+			/*Message msg;
 			msg.id = CString(item["id"].get<std::string>().c_str());
 			msg.myId = CString(item["myId"].get<std::string>().c_str());
 			msg.friendId = CString(item["friendId"].get<std::string>().c_str());
@@ -52,8 +52,8 @@ public:
 
 				msg.messageType = item["messageType"].get<int>();
 
-				result.push_back(msg);
-			}
+				result.push_back(msg);*/
+			//}
 		}
 
 		return result;

@@ -8,6 +8,7 @@
 #include <gdiplus.h>
 #include <urlmon.h>
 #include "chatDlg.h"
+#include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
 #include <cpprest/http_client.h>
@@ -100,6 +101,20 @@ BOOL homeDlg::OnInitDialog()
 	);
 	_txt_name.SetFont(&_font_name);
 
+	//=================get user information==========
+	CString token = TokenManager::getToken();
+	json response;
+	CString errorMessage;
+	if (getRequest(U("/api/user/info"), token, response, errorMessage)) {
+		if (response.contains("data") && response["data"].is_object())
+		{
+			json data = response["data"];
+			CString fullName = Utf8ToCString(data["FullName"].get<std::string>());
+			CString avatar = Utf8ToCString(data["Avatar"].get<std::string>());
+			_txt_name.SetWindowText(fullName);
+		}
+	}
+
 	//===============set list friend=================
 	_idc_list_friend.ModifyStyle(0, 0x0020 | LVS_REPORT);
 	_idc_list_friend.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
@@ -109,11 +124,13 @@ BOOL homeDlg::OnInitDialog()
 	imageList.Create(50, 50, ILC_COLOR32, 0, 10);
 	_idc_list_friend.SetImageList(&imageList, LVSIL_SMALL);
 
-	for (int i = 1; i <= 10; i++)
-	{
-		CString number;
-		number.Format(_T("%d"), i + 1);
-		_idc_list_friend.AddFriend(_T("Bạn ") + number, localPath);
+	if (getRequest(U("/api/message/list-friend"), token, response, errorMessage)) {
+		if (response.contains("data") && response["data"].is_array()) {
+			json data = response["data"];
+			for (auto& item : data) {
+				_idc_list_friend.AddFriend(Utf8ToCString(item["FullName"].get<std::string>()), localPath);
+			}
+		}
 	}
 
 	return TRUE;
@@ -171,15 +188,14 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-BOOL getUserInfo(CString& token, json& response, CString& errorMessage) {
+BOOL homeDlg::getRequest(const uri& endpoint, CString& token, json& response, CString& errorMessage) {
 	try {
 		http_client client(U("http://30.30.30.87:8888"));
 		http_request request(methods::GET);
-		request.set_request_uri(U("/api/user/info"));
+		request.set_request_uri(endpoint);
 		request.headers().add(U("Authorization"), U("Bearer") + std::wstring(token));
 
-
-		auto requestTask = client.request(methods::GET, U("/api/user/info"))
+		auto requestTask = client.request(request)
 			.then([&](http_response res) {
 				auto status = res.status_code();
 				return res.extract_json().then([status](web::json::value jsonResponse) {

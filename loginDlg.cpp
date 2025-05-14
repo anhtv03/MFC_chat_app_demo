@@ -8,6 +8,7 @@
 #include "afxdialogex.h"
 #include "registerDlg.h"
 #include "homeDlg.h"
+#include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
 #include <cpprest/http_client.h>
@@ -143,8 +144,7 @@ void loginDlg::OnBnClickedBtnLogin()
 	{
 		json data = response["data"];
 		CString token = Utf8ToCString(data["token"].get<std::string>());
-		CString username = Utf8ToCString(data["Username"].get<std::string>());
-		CString fullName = Utf8ToCString(data["FullName"].get<std::string>());
+		TokenManager::setToken(token);
 	}
 
 	homeDlg homeDlg;
