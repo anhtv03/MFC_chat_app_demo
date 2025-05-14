@@ -49,6 +49,8 @@ BOOL loginDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 	this->SetBackgroundColor(RGB(255, 255, 255));
+	
+	_txt_error.ShowWindow(SW_HIDE);
 
 	//set font for title Bkav chat
 	_font_title.CreateFont(
@@ -61,7 +63,6 @@ BOOL loginDlg::OnInitDialog()
 
 	//set font for login button
 	_btn_login.ModifyStyle(0, BS_OWNERDRAW);
-
 	_font_button_login.CreateFont(
 		20, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
 		ANSI_CHARSET, OUT_DEFAULT_PRECIS,
@@ -70,7 +71,15 @@ BOOL loginDlg::OnInitDialog()
 	);
 	_btn_login.SetFont(&_font_button_login);
 
-	_txt_error.ShowWindow(SW_HIDE);
+	//check remember auto login
+	CString username = AfxGetApp()->GetProfileString(_T("Login"), _T("Username"), _T(""));
+	CString password = AfxGetApp()->GetProfileString(_T("Login"), _T("Password"), _T(""));
+	if (!username.IsEmpty() && !password.IsEmpty()) {
+		_edt_username.SetWindowText(username);
+		_edt_password.SetWindowText(password);
+		_chk_remember.SetCheck(BST_CHECKED);
+		OnBnClickedBtnLogin();
+	}
 
 	return TRUE;
 }
@@ -145,6 +154,15 @@ void loginDlg::OnBnClickedBtnLogin()
 		json data = response["data"];
 		CString token = Utf8ToCString(data["token"].get<std::string>());
 		TokenManager::setToken(token);
+
+		if (_chk_remember.GetCheck()) {
+			AfxGetApp()->WriteProfileString(_T("Login"), _T("Username"), username);
+			AfxGetApp()->WriteProfileString(_T("Login"), _T("Password"), password);
+		}
+		else {
+			AfxGetApp()->WriteProfileString(_T("Login"), _T("Username"), _T(""));
+			AfxGetApp()->WriteProfileString(_T("Login"), _T("Password"), _T(""));
+		}
 	}
 
 	homeDlg homeDlg;
