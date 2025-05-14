@@ -8,18 +8,26 @@
 #include <gdiplus.h>
 #include <urlmon.h>
 #include "chatDlg.h"
+#include "util.h"
+#include "models/json.hpp"
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using json = nlohmann::json;
+using namespace web::http;
+using namespace web::http::client;
+using namespace Gdiplus;
 
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "urlmon.lib")
 
-using namespace Gdiplus;
 
 // homeDlg dialog
 
 IMPLEMENT_DYNAMIC(homeDlg, CDialogEx)
 
 homeDlg::homeDlg(CWnd* pParent /*=nullptr*/)
-	: CDialogEx(IDD_HOME_DIALOG, pParent), 
+	: CDialogEx(IDD_HOME_DIALOG, pParent),
 	m_avatarImage(nullptr),
 	m_gdiplusToken(0)
 {
@@ -82,7 +90,7 @@ BOOL homeDlg::OnInitDialog()
 		DEFAULT_PITCH | FF_SWISS, _T("Roboto")
 	);
 	_txt_list_title.SetFont(&_font_list_title);
-	
+
 	//set font for name
 	_font_name.CreateFont(
 		20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
@@ -93,7 +101,7 @@ BOOL homeDlg::OnInitDialog()
 	_txt_name.SetFont(&_font_name);
 
 	//===============set list friend=================
-	_idc_list_friend.ModifyStyle(0, 0x0020 | LVS_REPORT );
+	_idc_list_friend.ModifyStyle(0, 0x0020 | LVS_REPORT);
 	_idc_list_friend.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
 	_idc_list_friend.SetExtendedStyle(LVS_EX_FULLROWSELECT);
 
@@ -154,7 +162,7 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
 	int itemIndex = pNMItemActivate->iItem;
 
-	if (itemIndex != -1) 
+	if (itemIndex != -1)
 	{
 		CString friendName = _idc_list_friend.GetItemText(9 - itemIndex, 0);
 		chatDlg dlg(itemIndex + 2, friendName);
@@ -163,3 +171,37 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
+BOOL getUserInfo(CString& token, json& response, CString& errorMessage) {
+	try {
+		http_client client(U("http://30.30.30.87:8888"));
+		http_request request(methods::GET);
+		request.set_request_uri(U("/api/user/info"));
+		request.headers().add(U("Authorization"), U("Bearer") + std::wstring(token));
+
+
+		auto requestTask = client.request(methods::GET, U("/api/user/info"))
+			.then([&](http_response res) {
+				auto status = res.status_code();
+				return res.extract_json().then([status](web::json::value jsonResponse) {
+					return std::make_pair(status, jsonResponse);
+				});
+			})
+			.then([&](std::pair<int, web::json::value> result) {
+				int status = result.first;
+				web::json::value jsonResponse = result.second;
+				response = json::parse(jsonResponse.serialize());
+
+				if (status != status_codes::OK) {
+					if (response.contains("message") && response["message"].is_string()) {
+						throw std::runtime_error(response["message"].get<std::string>());
+					}
+				}
+			});
+		requestTask.wait();
+		return TRUE;
+	}
+	catch (const std::exception& e) {
+		errorMessage = Utf8ToCString(e.what());
+		return FALSE;
+	}
+}

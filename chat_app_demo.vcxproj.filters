@@ -60,6 +60,9 @@
     <ClInclude Include="models\json.hpp">
       <Filter>models</Filter>
     </ClInclude>
+    <ClInclude Include="util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="chat_app_demo.cpp">
@@ -89,6 +92,9 @@
     <ClCompile Include="Message.cpp">
       <Filter>models</Filter>
     </ClCompile>
+    <ClCompile Include="util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="chatappdemo.rc">
@@ -99,6 +105,7 @@
     <None Include="res\chatappdemo.rc2">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\chat_app_demo.ico">

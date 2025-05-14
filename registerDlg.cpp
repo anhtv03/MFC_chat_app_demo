@@ -5,6 +5,14 @@
 #include "chat_app_demo.h"
 #include "afxdialogex.h"
 #include "registerDlg.h"
+#include "models/json.hpp"
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+#include "util.h"
+
+using json = nlohmann::json;
+using namespace web::http;
+using namespace web::http::client;
 
 
 // registerDlg dialog
@@ -82,7 +90,7 @@ void registerDlg::OnOK()
 
 void registerDlg::OnBnClickedBtnRegister()
 {
-	CString name,username, password, confirmPassword;
+	CString name, username, password, confirmPassword;
 
 	_edt_name.GetWindowText(name);
 	_edt_username.GetWindowText(username);
@@ -110,6 +118,7 @@ void registerDlg::OnBnClickedBtnRegister()
 		_txt_error.SetWindowText(_T("Nhập lại mật khẩu không được để trống"));
 		return;
 	}
+
 	if (!password.IsEmpty() && !confirmPassword.IsEmpty()) {
 		if (password.Compare(confirmPassword) != 0) {
 			_txt_error.ShowWindow(SW_SHOW);
@@ -117,9 +126,60 @@ void registerDlg::OnBnClickedBtnRegister()
 			return;
 		}
 		else {
+			json response;
+			CString errerMess;
+			if (!Register(name, username, password, response, errerMess)) {
+				_txt_error.ShowWindow(SW_SHOW);
+				_txt_error.SetWindowText(errerMess);
+				return;
+			}
+
 			MessageBox(_T("Đăng ký thành công!"), _T("Thông báo"), MB_OK | MB_ICONINFORMATION);
 			this->EndDialog(IDOK);
 		}
 	}
 
+}
+
+BOOL registerDlg::Register(const CString& name, const CString& username, const CString& password, json& response, CString& errorMessage) {
+	try {
+		http_client client(U("http://30.30.30.87:8888"));
+
+		web::json::value requestBody;
+		requestBody[U("FullName")] = web::json::value::string(std::wstring(name));
+		requestBody[U("Username")] = web::json::value::string(std::wstring(username));
+		requestBody[U("Password")] = web::json::value::string(std::wstring(password));
+
+		auto requestTask = client.request(methods::POST, U("/api/auth/register"), requestBody)
+			.then([&](http_response res) {
+				auto status = res.status_code();
+				return res.extract_json().then([status](web::json::value jsonResponse) {
+					return std::make_pair(status, jsonResponse);
+					});
+			})
+			.then([&](std::pair<int, web::json::value> result) {
+				int status = result.first;
+				web::json::value jsonResponse = result.second;
+				response = json::parse(jsonResponse.serialize());
+
+				if (status != status_codes::OK) {
+					if (response.contains("message") && response["message"].is_string()) {
+						throw std::runtime_error(response["message"].get<std::string>());
+					}
+				}
+			});
+		requestTask.wait();
+		return TRUE;
+	}
+	catch (const std::exception& e) {
+		CString mess = Utf8ToCString(e.what());
+		if (mess == "Username already exists") {
+			errorMessage = _T("Tài khoản đã tồn tại !");
+		}
+		else
+		{
+			errorMessage = _T("Đăng ký thất bại do lỗi hệ thống!");
+		}
+		return FALSE;
+	}
 }

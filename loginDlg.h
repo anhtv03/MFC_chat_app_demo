@@ -17,8 +17,6 @@ protected:
     virtual void OnOK();
 
     DECLARE_MESSAGE_MAP()
-
-public:
     CEdit _edt_username;
     CEdit _edt_password;
     CButton _chk_remember;
@@ -28,6 +26,7 @@ public:
     CFont _font_title;
     CFont _font_button_login;
 
+public:
     afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
     afx_msg void OnBnClickedBtnLogin();
     afx_msg void OnStnClickedTxtRegister();

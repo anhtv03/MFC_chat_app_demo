@@ -1,8 +1,9 @@
 #pragma once
 #include "afxdialogex.h"
 #include "ButtonStyle.h"
+#include "models/json.hpp"
 
-
+using json = nlohmann::json;
 // registerDlg dialog
 
 class registerDlg : public CDialogEx
@@ -13,7 +14,7 @@ public:
 	registerDlg(CWnd* pParent = nullptr);   // standard constructor
 	virtual ~registerDlg();
 
-// Dialog Data
+	// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_REGISTER_DIALOG };
 #endif
@@ -33,4 +34,6 @@ protected:
 	CFont _font_btn_register;
 public:
 	afx_msg void OnBnClickedBtnRegister();
+	BOOL Register(const CString& name, const CString& username,
+		const CString& password, json& response, CString& errorMessage);
 };
