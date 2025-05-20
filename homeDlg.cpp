@@ -110,13 +110,13 @@ BOOL homeDlg::OnInitDialog()
 		{
 			json data = response["data"];
 			CString fullName = Utf8ToCString(data["FullName"].get<std::string>());
-			CString avatar = Utf8ToCString(data["Avatar"].get<std::string>());
+			//CString avatar = Utf8ToCString(data["Avatar"].get<std::string>());
 			_txt_name.SetWindowText(fullName);
 		}
 	}
 
 	//===============set list friend=================
-	_idc_list_friend.ModifyStyle(0, 0x0020 | LVS_REPORT);
+	_idc_list_friend.ModifyStyle(LVS_SORTASCENDING | LVS_SORTDESCENDING, LVS_OWNERDRAWFIXED | LVS_REPORT);
 	_idc_list_friend.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
 	_idc_list_friend.SetExtendedStyle(LVS_EX_FULLROWSELECT);
 
@@ -127,8 +127,21 @@ BOOL homeDlg::OnInitDialog()
 	if (getRequest(U("/api/message/list-friend"), token, response, errorMessage)) {
 		if (response.contains("data") && response["data"].is_array()) {
 			json data = response["data"];
+
+			_idc_list_friend.DeleteAllItems();
+			_idc_list_friend.m_Names.clear();
+			_idc_list_friend.m_friendIds.clear();
+			for (auto avatar : _idc_list_friend.m_Avatars) {
+				delete avatar;
+			}
+			_idc_list_friend.m_Avatars.clear();
+
 			for (auto& item : data) {
-				_idc_list_friend.AddFriend(Utf8ToCString(item["FullName"].get<std::string>()), localPath);
+				_idc_list_friend.AddFriend(
+					Utf8ToCString(item["FullName"].get<std::string>()),
+					Utf8ToCString(item["FriendID"].get<std::string>()),
+					localPath
+				);
 			}
 		}
 	}
@@ -173,7 +186,6 @@ void homeDlg::OnPaint()
 	}
 }
 
-
 void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
@@ -181,38 +193,45 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 
 	if (itemIndex != -1)
 	{
-		CString friendName = _idc_list_friend.GetItemText(9 - itemIndex, 0);
-		chatDlg dlg(itemIndex + 2, friendName);
-		dlg.DoModal();
+		DWORD_PTR dataIndex = _idc_list_friend.GetItemData(itemIndex);
+		if (dataIndex < _idc_list_friend.m_friendIds.size()) {
+			CString friendId = _idc_list_friend.m_friendIds[dataIndex];
+			CString friendName = _idc_list_friend.m_Names[dataIndex];
+
+			chatDlg dlg(friendId, friendName);
+			dlg.DoModal();
+		}
 	}
 	*pResult = 0;
 }
 
-BOOL homeDlg::getRequest(const uri& endpoint, CString& token, json& response, CString& errorMessage) {
+//----------------------Get API--------------------------
+BOOL homeDlg::getRequest(const web::uri& endpoint, CString& token, json& response, CString& errorMessage) {
 	try {
 		http_client client(U("http://30.30.30.87:8888"));
 		http_request request(methods::GET);
 		request.set_request_uri(endpoint);
-		request.headers().add(U("Authorization"), U("Bearer") + std::wstring(token));
+		request.headers().add(U("Authorization"), U("Bearer ") + std::wstring(token));
 
 		auto requestTask = client.request(request)
 			.then([&](http_response res) {
-				auto status = res.status_code();
-				return res.extract_json().then([status](web::json::value jsonResponse) {
-					return std::make_pair(status, jsonResponse);
+			auto status = res.status_code();
+			return res.extract_json().then([status](web::json::value jsonResponse) {
+				return std::make_pair(status, jsonResponse);
 				});
-			})
+				})
 			.then([&](std::pair<int, web::json::value> result) {
-				int status = result.first;
-				web::json::value jsonResponse = result.second;
-				response = json::parse(jsonResponse.serialize());
+			int status = result.first;
+			web::json::value jsonResponse = result.second;
+			response = json::parse(jsonResponse.serialize());
+			//OutputDebugString(L"DEBUG: Parsed JSON: " + Utf8ToCString(response.dump()) + L"\n");
 
-				if (status != status_codes::OK) {
-					if (response.contains("message") && response["message"].is_string()) {
-						throw std::runtime_error(response["message"].get<std::string>());
-					}
+			if (status != status_codes::OK) {
+				if (response.contains("message") && response["message"].is_string()) {
+					throw std::runtime_error(response["message"].get<std::string>());
 				}
-			});
+			}
+				});
 		requestTask.wait();
 		return TRUE;
 	}

@@ -111,28 +111,16 @@
     <Image Include="res\chat_app_demo.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="C:\Users\Admin\Downloads\Image.png.ico">
+    <Image Include="assets\Imag.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="C:\Users\Admin\Downloads\file.png.ico">
+    <Image Include="assets\file.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="C:\Users\Admin\Downloads\emoji.png.ico">
+    <Image Include="assets\emoji.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="C:\Users\Admin\Downloads\sending.png.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="assets\Image.png.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="assets\file.png.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="assets\emoji.png.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="assets\sending.png.ico">
+    <Image Include="assets\sending.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

@@ -14,6 +14,8 @@
 #include <cpprest/http_client.h>
 #include <cpprest/json.h>
 
+#include "chatDlg.h"
+
 using json = nlohmann::json;
 using namespace web::http;
 using namespace web::http::client;
@@ -21,6 +23,7 @@ using namespace web::http::client;
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+
 
 
 loginDlg::loginDlg(CWnd* pParent /*=nullptr*/)
@@ -49,7 +52,7 @@ BOOL loginDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 	this->SetBackgroundColor(RGB(255, 255, 255));
-	
+
 	_txt_error.ShowWindow(SW_HIDE);
 
 	//set font for title Bkav chat
@@ -139,6 +142,11 @@ void loginDlg::OnBnClickedBtnLogin()
 		return;
 	}
 
+	//if (username == "ad" && password == "1") {
+	//	chatDlg chatDlg(1, _T("AnhTV"));
+	//	chatDlg.DoModal();
+	//}
+
 	json response;
 	CString errorMessage;
 	if (!Login(username, password, response, errorMessage))
@@ -147,7 +155,6 @@ void loginDlg::OnBnClickedBtnLogin()
 		_txt_error.SetWindowText(errorMessage);
 		return;
 	}
-
 
 	if (response.contains("data") && response["data"].is_object())
 	{
@@ -177,6 +184,7 @@ void loginDlg::OnStnClickedTxtRegister()
 	}
 }
 
+//----------------------Get API--------------------------
 BOOL loginDlg::Login(const CString& username, const CString& password, json& response, CString& errorMessage)
 {
 	try {
@@ -188,28 +196,28 @@ BOOL loginDlg::Login(const CString& username, const CString& password, json& res
 
 		auto requestTask = client.request(methods::POST, U("/api/auth/login"), requestBody)
 			.then([&](http_response res) {
-				auto status = res.status_code();
-				return res.extract_json().then([status](web::json::value jsonResponse) {
-					return std::make_pair(status, jsonResponse);
+			auto status = res.status_code();
+			return res.extract_json().then([status](web::json::value jsonResponse) {
+				return std::make_pair(status, jsonResponse);
 				});
-			})
+				})
 			.then([&](std::pair<int, web::json::value> result) {
-				int status = result.first;
-				web::json::value jsonResponse = result.second;
-				response = json::parse(jsonResponse.serialize());
+			int status = result.first;
+			web::json::value jsonResponse = result.second;
+			response = json::parse(jsonResponse.serialize());
 
-				if (status != status_codes::OK) {
-					if (response.contains("message") && response["message"].is_string()) {
-						throw std::runtime_error(response["message"].get<std::string>());
-					}
+			if (status != status_codes::OK) {
+				if (response.contains("message") && response["message"].is_string()) {
+					throw std::runtime_error(response["message"].get<std::string>());
 				}
-			});
+			}
+				});
 		requestTask.wait();
 		return TRUE;
 	}
 	catch (const std::exception& e) {
 		CString mess = Utf8ToCString(e.what());
-		if (mess == "Incorrect password") {
+		if (mess == "Incorrect password" || mess == "Username not found") {
 			errorMessage = _T("Bạn nhập sai tên tài khoản hoặc mật khẩu! ");
 		}
 		else

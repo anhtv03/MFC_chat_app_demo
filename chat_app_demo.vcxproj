@@ -234,14 +234,10 @@
     <None Include="res\chatappdemo.rc2" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="assets\emoji.png.ico" />
-    <Image Include="assets\file.png.ico" />
-    <Image Include="assets\Image.png.ico" />
-    <Image Include="assets\sending.png.ico" />
-    <Image Include="C:\Users\Admin\Downloads\emoji.png.ico" />
-    <Image Include="C:\Users\Admin\Downloads\file.png.ico" />
-    <Image Include="C:\Users\Admin\Downloads\Image.png.ico" />
-    <Image Include="C:\Users\Admin\Downloads\sending.png.ico" />
+    <Image Include="assets\emoji.ico" />
+    <Image Include="assets\file.ico" />
+    <Image Include="assets\Imag.ico" />
+    <Image Include="assets\sending.ico" />
     <Image Include="res\chat_app_demo.ico" />
   </ItemGroup>
   <ItemGroup>

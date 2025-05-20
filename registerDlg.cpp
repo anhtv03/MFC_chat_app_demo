@@ -141,6 +141,7 @@ void registerDlg::OnBnClickedBtnRegister()
 
 }
 
+//----------------------Get API--------------------------
 BOOL registerDlg::Register(const CString& name, const CString& username, const CString& password, json& response, CString& errorMessage) {
 	try {
 		http_client client(U("http://30.30.30.87:8888"));

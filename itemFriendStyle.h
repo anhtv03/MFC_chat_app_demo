@@ -16,9 +16,10 @@ protected:
 
 public:
 	std::vector<Image*> m_Avatars;
+	std::vector<CString> m_friendIds;
 	std::vector<CString> m_Names;
 
-	void AddFriend(const CString& name, const CString& imagePath);
+	void AddFriend(const CString& fullName, const CString& friendId, const CString& imagePath);
 
 };
 

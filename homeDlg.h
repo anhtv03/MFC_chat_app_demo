@@ -3,6 +3,7 @@
 #include <afxwin.h>
 #include <gdiplus.h>
 #include "itemFriendStyle.h"
+#include <cpprest/http_client.h>
 #include "models/json.hpp"
 #pragma comment(lib, "gdiplus.lib")
 
@@ -36,7 +37,7 @@ public:
 	HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	ULONG_PTR m_gdiplusToken;
 	Image* m_avatarImage;
-	BOOL getRequest(const uri& endpoint, CString& token, json& response, CString& errorMessage);
+	BOOL getRequest(const web::uri& endpoint, CString& token, json& response, CString& errorMessage);
 
 private:
 	CStatic _txt_title;

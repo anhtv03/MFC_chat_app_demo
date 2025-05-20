@@ -1,7 +1,13 @@
 #pragma once
 #include "afxdialogex.h"
 #include "Message.h"
+#include <afxbutton.h>
+#include <cpprest/http_client.h>
+#include "models/json.hpp"
+#pragma comment(lib, "gdiplus.lib")
 
+using json = nlohmann::json;
+using namespace Gdiplus;
 
 // chatDlg dialog
 
@@ -10,8 +16,7 @@ class chatDlg : public CDialogEx
 	DECLARE_DYNAMIC(chatDlg)
 
 public:
-	chatDlg(CWnd* pParent = nullptr);   // standard constructor
-	chatDlg(int friendId, CString friendName, CWnd* pParent = nullptr);
+	chatDlg(CString friendId, CString friendName, CWnd* pParent = nullptr);
 	virtual ~chatDlg();
 
 // Dialog Data
@@ -26,15 +31,17 @@ protected:
 	DECLARE_MESSAGE_MAP()
 	CListCtrl _idc_list_chat;
 	CEdit _idc_edt_message;
-	CButton _idc_btn_send;
+	CMFCButton _idc_btn_send;
 	CMFCButton _idc_btn_emoji;
-	CButton _idc_btn_file;
-	CButton _idc_btn_image;
+	CMFCButton _idc_btn_file;
+	CMFCButton _idc_btn_image;
 
 private:
-	int m_friendId;
-	CString m_friendName;
+	CString m_friendId;
+	CString m_friendname;
 	std::vector<Message> m_messages;
 public:
 	afx_msg void OnBnClickedBtnSend();
+	void setIconButton(CMFCButton& _idc_button, HICON hicon);
+	BOOL getMessage(CString& friendId, CString& token, json& response, CString& errorMessage);
 };
