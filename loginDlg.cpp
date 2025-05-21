@@ -188,7 +188,7 @@ void loginDlg::OnStnClickedTxtRegister()
 BOOL loginDlg::Login(const CString& username, const CString& password, json& response, CString& errorMessage)
 {
 	try {
-		http_client client(U("http://30.30.30.87:8888"));
+		http_client client(U("http://30.30.30.85:8888"));
 
 		web::json::value requestBody;
 		requestBody[U("Username")] = web::json::value::string(std::wstring(username));

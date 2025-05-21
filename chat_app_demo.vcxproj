@@ -196,12 +196,10 @@
     <ClInclude Include="ButtonStyle.h" />
     <ClInclude Include="chatDlg.h" />
     <ClInclude Include="chat_app_demo.h" />
-    <ClInclude Include="JsonHelper.h" />
     <ClInclude Include="loginDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="homeDlg.h" />
     <ClInclude Include="itemFriendStyle.h" />
-    <ClInclude Include="Message.h" />
     <ClInclude Include="models\json.hpp" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="registerDlg.h" />

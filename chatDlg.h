@@ -44,4 +44,6 @@ public:
 	afx_msg void OnBnClickedBtnSend();
 	void setIconButton(CMFCButton& _idc_button, HICON hicon);
 	BOOL getMessage(CString& friendId, CString& token, json& response, CString& errorMessage);
+	BOOL sendMessage(CString& friendId, CString& content, List<FILE>
+		CString& token, json& response, CString& errorMessage);
 };

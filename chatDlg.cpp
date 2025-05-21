@@ -5,7 +5,6 @@
 #include "chat_app_demo.h"
 #include "afxdialogex.h"
 #include "chatDlg.h"
-#include "Message.h"
 #include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
@@ -98,19 +97,9 @@ void chatDlg::OnBnClickedBtnSend()
 		return;
 	}
 
-	Message newMsg;
-	/*newMsg.id = _T("11");
-	newMsg.myId = _T("1");
-	CString friendIdStr;
-	friendIdStr.Format(_T("%d"), m_friendId);
-	newMsg.friendId = friendIdStr;
-	newMsg.content = content;
-	newMsg.isSend = 1;
-	newMsg.createdAt = CTime::GetCurrentTime();
-	newMsg.messageType = 0; */
 
-	//m_messages.push_back(newMsg);
-	//_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), newMsg.content);
+
+
 	_idc_edt_message.SetWindowText(_T(""));
 
 }
@@ -118,7 +107,7 @@ void chatDlg::OnBnClickedBtnSend()
 //----------------------Get API--------------------------
 BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CString& errorMessage) {
 	try {
-		http_client client(U("http://30.30.30.87:8888"));
+		http_client client(U("http://30.30.30.85:8888"));
 		uri_builder builder(U("/api/message/get-message"));
 		builder.append_query(U("FriendID"), std::wstring(friendId));
 
@@ -153,6 +142,7 @@ BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CStr
 		return FALSE;
 	}
 }
+
 
 
 

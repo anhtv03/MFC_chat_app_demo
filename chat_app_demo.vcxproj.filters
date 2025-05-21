@@ -51,12 +51,6 @@
     <ClInclude Include="chatDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Message.h">
-      <Filter>models</Filter>
-    </ClInclude>
-    <ClInclude Include="JsonHelper.h">
-      <Filter>models</Filter>
-    </ClInclude>
     <ClInclude Include="models\json.hpp">
       <Filter>models</Filter>
     </ClInclude>

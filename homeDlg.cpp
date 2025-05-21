@@ -208,7 +208,7 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 //----------------------Get API--------------------------
 BOOL homeDlg::getRequest(const web::uri& endpoint, CString& token, json& response, CString& errorMessage) {
 	try {
-		http_client client(U("http://30.30.30.87:8888"));
+		http_client client(U("http://30.30.30.85:8888"));
 		http_request request(methods::GET);
 		request.set_request_uri(endpoint);
 		request.headers().add(U("Authorization"), U("Bearer ") + std::wstring(token));
