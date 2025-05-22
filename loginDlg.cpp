@@ -11,25 +11,24 @@
 #include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
-#include <cpprest/http_client.h>
-#include <cpprest/json.h>
-
 #include "chatDlg.h"
 
 using json = nlohmann::json;
-using namespace web::http;
-using namespace web::http::client;
+
+#define CURL_STATICLIB
+#include <curl.h>
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-
-
 loginDlg::loginDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_LOGIN_DIALOG, pParent)
 {
+	curl_global_cleanup();
 }
+
 
 void loginDlg::DoDataExchange(CDataExchange* pDX)
 {
@@ -51,6 +50,7 @@ END_MESSAGE_MAP()
 BOOL loginDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	curl_global_init(CURL_GLOBAL_ALL);
 	this->SetBackgroundColor(RGB(255, 255, 255));
 
 	_txt_error.ShowWindow(SW_HIDE);
@@ -142,11 +142,6 @@ void loginDlg::OnBnClickedBtnLogin()
 		return;
 	}
 
-	//if (username == "ad" && password == "1") {
-	//	chatDlg chatDlg(1, _T("AnhTV"));
-	//	chatDlg.DoModal();
-	//}
-
 	json response;
 	CString errorMessage;
 	if (!Login(username, password, response, errorMessage))
@@ -187,45 +182,58 @@ void loginDlg::OnStnClickedTxtRegister()
 //----------------------Get API--------------------------
 BOOL loginDlg::Login(const CString& username, const CString& password, json& response, CString& errorMessage)
 {
+	CURL* curl = nullptr;
+	CURLcode res = CURLE_OK;
+	std::string response_str;
+	long http_code = 0;
+
 	try {
-		http_client client(U("http://30.30.30.85:8888"));
+		curl = curl_easy_init();
 
-		web::json::value requestBody;
-		requestBody[U("Username")] = web::json::value::string(std::wstring(username));
-		requestBody[U("Password")] = web::json::value::string(std::wstring(password));
+		json requestBody;
+		requestBody["Username"] = CStringA(username).GetString();
+		requestBody["Password"] = CStringA(password).GetString();
+		std::string data = requestBody.dump();
 
-		auto requestTask = client.request(methods::POST, U("/api/auth/login"), requestBody)
-			.then([&](http_response res) {
-			auto status = res.status_code();
-			return res.extract_json().then([status](web::json::value jsonResponse) {
-				return std::make_pair(status, jsonResponse);
-				});
-				})
-			.then([&](std::pair<int, web::json::value> result) {
-			int status = result.first;
-			web::json::value jsonResponse = result.second;
-			response = json::parse(jsonResponse.serialize());
+		struct curl_slist* headers = curl_slist_append(nullptr, "Content-Type: application/json");
+		curl_easy_setopt(curl, CURLOPT_URL, "http://30.30.30.85:8888/api/auth/login");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_str);
 
-			if (status != status_codes::OK) {
-				if (response.contains("message") && response["message"].is_string()) {
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK) {
+			throw std::runtime_error(curl_easy_strerror(res));
+		}
+
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		if (http_code != 200) {
+			if (!response_str.empty()) {
+				response = json::parse(response_str, nullptr, false);
+				if (!response.is_discarded() && response.contains("message") && response["message"].is_string())
 					throw std::runtime_error(response["message"].get<std::string>());
-				}
 			}
-				});
-		requestTask.wait();
+		}
+		response = json::parse(response_str, nullptr, false);
+
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
 		return TRUE;
 	}
 	catch (const std::exception& e) {
 		CString mess = Utf8ToCString(e.what());
 		if (mess == "Incorrect password" || mess == "Username not found") {
-			errorMessage = _T("Bạn nhập sai tên tài khoản hoặc mật khẩu! ");
+			errorMessage = _T("Bạn nhập sai tên tài khoản hoặc mật khẩu!");
 		}
-		else
-		{
+		else {
 			errorMessage = _T("Đăng nhập thất bại do lỗi hệ thống!");
 		}
+
+		if (curl) curl_easy_cleanup(curl);
 		return FALSE;
 	}
+	return FALSE;
 }
 
 

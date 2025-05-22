@@ -46,7 +46,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>Dynamic</UseOfMfc>
+    <UseOfMfc>Static</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -91,15 +91,16 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDOWS;_DEBUG;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDOWS;_DEBUG;_AFXDLL;%(PreprocessorDefinitions);_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)packages\cpprestsdk.v142.2.10.15\build\native\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\curl-setup\include\curl</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>cpprest142_2_10d.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)packages\cpprestsdk.v142.2.10.15\build\native\x64\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libcurl_a_debug.lib;Normaliz.lib;Ws2_32.lib;Wldap32.lib;Crypt32.lib;advapi32.lib;User32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\curl-setup\lib</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -122,9 +123,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\cpprestsdk.v142.2.10.15\build\native\include;D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\curl-8.13.0_5-win64-mingw\curl</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
+      <AdditionalLibraryDirectories>D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\cpprestsdk.v142.2.10.15\build\native\x64\lib;D:\Source Code\MFC_Code\MFC_chat_app_demo\packages\curl-8.13.0_5-win64-mingw\Lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cpprest142_2_10d.lib;libcurl_a_debug.lib;ws2_32.lib;crypt32.lib;advapi32.lib</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -200,6 +204,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="homeDlg.h" />
     <ClInclude Include="itemFriendStyle.h" />
+    <ClInclude Include="Message.h" />
     <ClInclude Include="models\json.hpp" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="registerDlg.h" />

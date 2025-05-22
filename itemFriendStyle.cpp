@@ -24,15 +24,21 @@ void itemFriendStyle::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
     Graphics graphics(pDC->GetSafeHdc());
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
-    int index = lpDrawItemStruct->itemID;
-    if (index < 0 || index >= (int)m_Names.size()) {
+    int itemIndex = lpDrawItemStruct->itemID;
+    if (itemIndex < 0 || itemIndex >= GetItemCount()) {
         OutputDebugString(L"DEBUG: Invalid DrawItem index\n");
         return;
     }
 
+    DWORD_PTR dataIndex = GetItemData(itemIndex);
+    if (dataIndex >= m_Names.size()) {
+        OutputDebugString(L"DEBUG: Invalid dataIndex\n");
+        return;
+    }
+
     CRect rect = lpDrawItemStruct->rcItem;
-    CString name = m_Names[index];
-    Image* avatar = m_Avatars[index];
+    CString name = m_Names[dataIndex];
+    Image* avatar = m_Avatars[dataIndex];
 
     int avatarSize = 50;
     int centerY = rect.top + (rect.Height() - avatarSize) / 2;

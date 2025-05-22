@@ -11,12 +11,11 @@
 #include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
-#include <cpprest/http_client.h>
-#include <cpprest/json.h>
+#include <atlconv.h>
+#define CURL_STATICLIB
+#include <curl.h>
 
 using json = nlohmann::json;
-using namespace web::http;
-using namespace web::http::client;
 using namespace Gdiplus;
 
 #pragma comment(lib, "gdiplus.lib")
@@ -41,6 +40,7 @@ homeDlg::~homeDlg()
 		delete m_avatarImage;
 	}
 	GdiplusShutdown(m_gdiplusToken);
+	curl_global_cleanup();
 }
 
 void homeDlg::DoDataExchange(CDataExchange* pDX)
@@ -58,11 +58,13 @@ BEGIN_MESSAGE_MAP(homeDlg, CDialogEx)
 	ON_WM_CTLCOLOR()
 	ON_WM_PAINT()
 	ON_NOTIFY(NM_DBLCLK, IDC_LIST_FRIEND, &homeDlg::OnNMDblclkListFriend)
+	ON_EN_CHANGE(IDC_EDT_SEARCH, &homeDlg::OnEnChangeEdtSearch)
 END_MESSAGE_MAP()
 
 BOOL homeDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	curl_global_init(CURL_GLOBAL_ALL);
 	this->SetBackgroundColor(RGB(255, 255, 255));
 
 	//set avatar for picture control
@@ -105,7 +107,7 @@ BOOL homeDlg::OnInitDialog()
 	CString token = TokenManager::getToken();
 	json response;
 	CString errorMessage;
-	if (getRequest(U("/api/user/info"), token, response, errorMessage)) {
+	if (getRequest(_T("/api/user/info"), token, response, errorMessage)) {
 		if (response.contains("data") && response["data"].is_object())
 		{
 			json data = response["data"];
@@ -124,24 +126,15 @@ BOOL homeDlg::OnInitDialog()
 	imageList.Create(50, 50, ILC_COLOR32, 0, 10);
 	_idc_list_friend.SetImageList(&imageList, LVSIL_SMALL);
 
-	if (getRequest(U("/api/message/list-friend"), token, response, errorMessage)) {
+	if (getRequest(_T("/api/message/list-friend"), token, response, errorMessage)) {
 		if (response.contains("data") && response["data"].is_array()) {
 			json data = response["data"];
 
 			_idc_list_friend.DeleteAllItems();
-			_idc_list_friend.m_Names.clear();
-			_idc_list_friend.m_friendIds.clear();
-			for (auto avatar : _idc_list_friend.m_Avatars) {
-				delete avatar;
-			}
-			_idc_list_friend.m_Avatars.clear();
-
 			for (auto& item : data) {
-				_idc_list_friend.AddFriend(
-					Utf8ToCString(item["FullName"].get<std::string>()),
-					Utf8ToCString(item["FriendID"].get<std::string>()),
-					localPath
-				);
+				CString name = Utf8ToCString(item["FullName"].get<std::string>());
+				CString friendId = Utf8ToCString(item["FriendID"].get<std::string>());
+				_idc_list_friend.AddFriend(name, friendId, localPath);
 			}
 		}
 	}
@@ -205,38 +198,75 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
+void homeDlg::OnEnChangeEdtSearch()
+{
+	CString key;
+	CString localPath = _T("avatar.png"); 
+	_edt_search.GetWindowText(key);
+	key.MakeLower();
+
+	_idc_list_friend.DeleteAllItems();
+	if (key.IsEmpty()) {
+		for (size_t i = 0; i < _idc_list_friend.m_Names.size(); ++i) {
+			int itemIndex = _idc_list_friend.InsertItem(_idc_list_friend.GetItemCount(), _idc_list_friend.m_Names[i]);
+			_idc_list_friend.SetItemData(itemIndex, i);
+		}
+		return;
+	}
+
+	for (size_t i = 0; i < _idc_list_friend.m_Names.size(); ++i) {
+		CString name = _idc_list_friend.m_Names[i];
+		name.MakeLower(); 
+		if (name.Find(key) != -1) { 
+			int itemIndex = _idc_list_friend.InsertItem(_idc_list_friend.GetItemCount(), _idc_list_friend.m_Names[i]);
+			_idc_list_friend.SetItemData(itemIndex, i);
+		}
+	}
+}
+
 //----------------------Get API--------------------------
-BOOL homeDlg::getRequest(const web::uri& endpoint, CString& token, json& response, CString& errorMessage) {
+BOOL homeDlg::getRequest(const CString& endpoint, const CString& token, json& response, CString& errorMessage) {
+	CURL* curl = nullptr;
+	CURLcode res = CURLE_OK;
+	std::string response_str;
+	long http_code = 0;
+
 	try {
-		http_client client(U("http://30.30.30.85:8888"));
-		http_request request(methods::GET);
-		request.set_request_uri(endpoint);
-		request.headers().add(U("Authorization"), U("Bearer ") + std::wstring(token));
+		curl = curl_easy_init();
 
-		auto requestTask = client.request(request)
-			.then([&](http_response res) {
-			auto status = res.status_code();
-			return res.extract_json().then([status](web::json::value jsonResponse) {
-				return std::make_pair(status, jsonResponse);
-				});
-				})
-			.then([&](std::pair<int, web::json::value> result) {
-			int status = result.first;
-			web::json::value jsonResponse = result.second;
-			response = json::parse(jsonResponse.serialize());
-			//OutputDebugString(L"DEBUG: Parsed JSON: " + Utf8ToCString(response.dump()) + L"\n");
+		CStringA url(_T("http://30.30.30.85:8888") + endpoint);
+		std::string authHeader = "Authorization: Bearer " + std::string(CT2A(token));
+		struct curl_slist* headers = curl_slist_append(nullptr, authHeader.c_str());
 
-			if (status != status_codes::OK) {
-				if (response.contains("message") && response["message"].is_string()) {
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_str);
+
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK) {
+			throw std::runtime_error(curl_easy_strerror(res));
+		}
+
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		if (http_code != 200) {
+			if (!response_str.empty()) {
+				response = json::parse(response_str, nullptr, false);
+				if (!response.is_discarded() && response.contains("message") && response["message"].is_string())
 					throw std::runtime_error(response["message"].get<std::string>());
-				}
 			}
-				});
-		requestTask.wait();
+		}
+		response = json::parse(response_str, nullptr, false);
+
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
 		return TRUE;
 	}
 	catch (const std::exception& e) {
 		errorMessage = Utf8ToCString(e.what());
+		if (curl) curl_easy_cleanup(curl);
 		return FALSE;
 	}
 }
+

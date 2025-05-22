@@ -12,3 +12,10 @@ CString Utf8ToCString(const std::string& utf8Str)
 
     return CString(wideCharBuf.data());
 }
+
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* data) 
+{
+    size_t totalSize = size * nmemb;
+    data->append((char*)contents, totalSize);
+    return totalSize;
+}

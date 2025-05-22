@@ -6,14 +6,11 @@
 #include "afxdialogex.h"
 #include "registerDlg.h"
 #include "models/json.hpp"
-#include <cpprest/http_client.h>
-#include <cpprest/json.h>
 #include "util.h"
+#define CURL_STATICLIB
+#include <curl.h>
 
 using json = nlohmann::json;
-using namespace web::http;
-using namespace web::http::client;
-
 
 // registerDlg dialog
 
@@ -22,7 +19,7 @@ IMPLEMENT_DYNAMIC(registerDlg, CDialogEx)
 registerDlg::registerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REGISTER_DIALOG, pParent)
 {
-
+	curl_global_cleanup();
 }
 
 registerDlg::~registerDlg()
@@ -51,6 +48,7 @@ END_MESSAGE_MAP()
 BOOL registerDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	curl_global_init(CURL_GLOBAL_ALL);
 	this->SetBackgroundColor(RGB(255, 255, 255));
 
 	//set font for login button
@@ -142,34 +140,46 @@ void registerDlg::OnBnClickedBtnRegister()
 }
 
 //----------------------Get API--------------------------
-BOOL registerDlg::Register(const CString& name, const CString& username, const CString& password, json& response, CString& errorMessage) {
+BOOL registerDlg::Register(const CString& name, const CString& username, const CString& password, json& response, CString& errorMessage) 
+{
+	CURL* curl = nullptr;
+	CURLcode res = CURLE_OK;
+	std::string response_str;
+	long http_code = 0;
+
 	try {
-		http_client client(U("http://30.30.30.85:8888"));
+		curl = curl_easy_init();
 
-		web::json::value requestBody;
-		requestBody[U("FullName")] = web::json::value::string(std::wstring(name));
-		requestBody[U("Username")] = web::json::value::string(std::wstring(username));
-		requestBody[U("Password")] = web::json::value::string(std::wstring(password));
+		json requestBody;
+		requestBody["FullName"] = CStringA(name).GetString();
+		requestBody["Username"] = CStringA(username).GetString();
+		requestBody["Password"] = CStringA(password).GetString();
+		std::string data = requestBody.dump();
 
-		auto requestTask = client.request(methods::POST, U("/api/auth/register"), requestBody)
-			.then([&](http_response res) {
-				auto status = res.status_code();
-				return res.extract_json().then([status](web::json::value jsonResponse) {
-					return std::make_pair(status, jsonResponse);
-					});
-			})
-			.then([&](std::pair<int, web::json::value> result) {
-				int status = result.first;
-				web::json::value jsonResponse = result.second;
-				response = json::parse(jsonResponse.serialize());
+		struct curl_slist* headers = curl_slist_append(nullptr, "Content-Type: application/json");
+		curl_easy_setopt(curl, CURLOPT_URL, "http://30.30.30.85:8888/api/auth/register");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_str);
 
-				if (status != status_codes::OK) {
-					if (response.contains("message") && response["message"].is_string()) {
-						throw std::runtime_error(response["message"].get<std::string>());
-					}
-				}
-			});
-		requestTask.wait();
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK) {
+			throw std::runtime_error(curl_easy_strerror(res));
+		}
+
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		if (http_code != 200) {
+			if (!response_str.empty()) {
+				response = json::parse(response_str, nullptr, false);
+				if (!response.is_discarded() && response.contains("message") && response["message"].is_string())
+					throw std::runtime_error(response["message"].get<std::string>());
+			}
+		}
+		response = json::parse(response_str, nullptr, false);
+
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
 		return TRUE;
 	}
 	catch (const std::exception& e) {
@@ -181,6 +191,7 @@ BOOL registerDlg::Register(const CString& name, const CString& username, const C
 		{
 			errorMessage = _T("Đăng ký thất bại do lỗi hệ thống!");
 		}
+		if (curl) curl_easy_cleanup(curl);
 		return FALSE;
 	}
 }

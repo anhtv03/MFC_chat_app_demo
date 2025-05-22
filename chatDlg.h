@@ -2,7 +2,6 @@
 #include "afxdialogex.h"
 #include "Message.h"
 #include <afxbutton.h>
-#include <cpprest/http_client.h>
 #include "models/json.hpp"
 #pragma comment(lib, "gdiplus.lib")
 
@@ -44,6 +43,6 @@ public:
 	afx_msg void OnBnClickedBtnSend();
 	void setIconButton(CMFCButton& _idc_button, HICON hicon);
 	BOOL getMessage(CString& friendId, CString& token, json& response, CString& errorMessage);
-	BOOL sendMessage(CString& friendId, CString& content, List<FILE>
+	BOOL sendMessage(CString& friendId, CString& content, std::vector<CString> files,
 		CString& token, json& response, CString& errorMessage);
 };

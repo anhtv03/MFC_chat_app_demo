@@ -8,13 +8,10 @@
 #include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
-#include <cpprest/http_client.h>
-#include <cpprest/json.h>
+#define CURL_STATICLIB
+#include <curl.h>
 
 using json = nlohmann::json;
-using namespace web::http;
-using namespace web::http::client;
-
 
 // chatDlg dialog
 
@@ -29,7 +26,7 @@ chatDlg::chatDlg(CString friendId, CString friendName, CWnd* pParent /*=nullptr*
 
 chatDlg::~chatDlg()
 {
-	
+	curl_global_cleanup();
 }
 
 void chatDlg::DoDataExchange(CDataExchange* pDX)
@@ -52,6 +49,7 @@ END_MESSAGE_MAP()
 BOOL chatDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
+	curl_global_init(CURL_GLOBAL_ALL);
 	SetWindowText(m_friendname);
 
 	//===============set chat content=================
@@ -84,6 +82,7 @@ BOOL chatDlg::OnInitDialog()
 		}
 	}
 
+	_idc_list_chat.Scroll(CSize(0, 0));
 	return TRUE;
 }
 
@@ -106,14 +105,73 @@ void chatDlg::OnBnClickedBtnSend()
 
 //----------------------Get API--------------------------
 BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CString& errorMessage) {
+	CURL* curl = nullptr;
+	CURLcode res = CURLE_OK;
+	std::string response_str;
+	long http_code = 0;	
+	
 	try {
-		http_client client(U("http://30.30.30.85:8888"));
-		uri_builder builder(U("/api/message/get-message"));
-		builder.append_query(U("FriendID"), std::wstring(friendId));
+		curl = curl_easy_init();
 
-		http_request request(methods::GET);
+		CStringA url(_T("http://30.30.30.85:8888/api/message/get-message?FriendID=") + friendId);
+		std::string authHeader = "Authorization: Bearer " + std::string(CT2A(token));
+		struct curl_slist* headers = curl_slist_append(nullptr, authHeader.c_str());
+
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_str);
+
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK) {
+			throw std::runtime_error(curl_easy_strerror(res));
+		}
+
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		if (http_code != 200) {
+			if (!response_str.empty()) {
+				response = json::parse(response_str, nullptr, false);
+				if (!response.is_discarded() && response.contains("message") && response["message"].is_string())
+					throw std::runtime_error(response["message"].get<std::string>());
+			}
+		}
+		response = json::parse(response_str, nullptr, false);
+
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
+		return TRUE;
+	}
+	catch (const std::exception& e) {
+		errorMessage = Utf8ToCString(e.what());
+		if (curl) curl_easy_cleanup(curl);
+		return FALSE;
+	}
+}
+
+BOOL chatDlg::sendMessage(CString& friendId, CString& content, std::vector<CString> files,
+	CString& token, json& response, CString& errorMessage) 
+{
+	/*try {
+		http_client client(U("http://30.30.30.85:8888"));
+		uri_builder builder(U("/api/message/send-message"));
+
+		http_request request(methods::POST);
 		request.set_request_uri(builder.to_uri());
 		request.headers().add(U("Authorization"), U("Bearer ") + std::wstring(token));
+
+		multipart_form_data form_data;
+		form_data.add_text(U("FriendID"), std::wstring(friendId));
+		form_data.add_text(U("Content"), std::wstring(content));
+
+		for (const auto& filePath : files) {
+			if (!filePath.IsEmpty()) {
+				auto file_stream = concurrency::streams::file_stream<uint8_t>::open_istream(filePath.GetString()).get();
+				form_data.add_file(U("files"), file_stream, std::wstring(filePath));
+			}
+		}
+
+		request.set_body(form_data);
 
 		auto requestTask = client.request(request)
 			.then([&](http_response res) {
@@ -140,10 +198,9 @@ BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CStr
 	catch (const std::exception& e) {
 		errorMessage = Utf8ToCString(e.what());
 		return FALSE;
-	}
+	}*/
+	return FALSE;
 }
-
-
 
 
 //----------------------function design-------------------

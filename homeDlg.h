@@ -3,7 +3,6 @@
 #include <afxwin.h>
 #include <gdiplus.h>
 #include "itemFriendStyle.h"
-#include <cpprest/http_client.h>
 #include "models/json.hpp"
 #pragma comment(lib, "gdiplus.lib")
 
@@ -34,10 +33,11 @@ protected:
 
 public:
 	afx_msg void OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnEnChangeEdtSearch();
 	HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	ULONG_PTR m_gdiplusToken;
 	Image* m_avatarImage;
-	BOOL getRequest(const web::uri& endpoint, CString& token, json& response, CString& errorMessage);
+	BOOL getRequest(const CString& endpoint,const CString& token, json& response, CString& errorMessage);
 
 private:
 	CStatic _txt_title;
@@ -51,4 +51,5 @@ private:
 	CStatic _idc_avatar;
 	GdiplusStartupInput m_gdiplusStartupInput;
 	CImageList m_ImageList;
+
 };
