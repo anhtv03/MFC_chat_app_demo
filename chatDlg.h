@@ -3,6 +3,7 @@
 #include "Message.h"
 #include <afxbutton.h>
 #include "models/json.hpp"
+#include "ChatListStyle.h"
 #pragma comment(lib, "gdiplus.lib")
 
 using json = nlohmann::json;
@@ -26,9 +27,11 @@ public:
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual BOOL OnInitDialog();
+	afx_msg void OnPaint();
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 
 	DECLARE_MESSAGE_MAP()
-	CListCtrl _idc_list_chat;
+	ChatListStyle _idc_list_chat;
 	CEdit _idc_edt_message;
 	CMFCButton _idc_btn_send;
 	CMFCButton _idc_btn_emoji;
@@ -39,9 +42,12 @@ private:
 	CString m_friendId;
 	CString m_friendname;
 	std::vector<Message> m_messages;
+	HBRUSH m_hbrBackground;
 public:
 	afx_msg void OnBnClickedBtnSend();
 	void setIconButton(CMFCButton& _idc_button, HICON hicon);
+	void StyleInputArea();
+	void LoadChatMessages();
 	BOOL getMessage(CString& friendId, CString& token, json& response, CString& errorMessage);
 	BOOL sendMessage(CString& friendId, CString& content, std::vector<CString> files,
 		CString& token, json& response, CString& errorMessage);

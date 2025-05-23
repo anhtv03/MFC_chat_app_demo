@@ -113,7 +113,8 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>xcopy "$(ProjectDir)assets\messages.txt" "$(OutDir)assets\" /Y /I</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -199,6 +200,7 @@
   <ItemGroup>
     <ClInclude Include="ButtonStyle.h" />
     <ClInclude Include="chatDlg.h" />
+    <ClInclude Include="ChatListStyle.h" />
     <ClInclude Include="chat_app_demo.h" />
     <ClInclude Include="loginDlg.h" />
     <ClInclude Include="framework.h" />
@@ -216,6 +218,7 @@
   <ItemGroup>
     <ClCompile Include="ButtonStyle.cpp" />
     <ClCompile Include="chatDlg.cpp" />
+    <ClCompile Include="ChatListStyle.cpp" />
     <ClCompile Include="chat_app_demo.cpp" />
     <ClCompile Include="loginDlg.cpp" />
     <ClCompile Include="homeDlg.cpp" />
@@ -242,9 +245,6 @@
     <Image Include="assets\Imag.ico" />
     <Image Include="assets\sending.ico" />
     <Image Include="res\chat_app_demo.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="assets\messages.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

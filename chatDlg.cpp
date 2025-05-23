@@ -43,6 +43,8 @@ void chatDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(chatDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_SEND, &chatDlg::OnBnClickedBtnSend)
+	ON_WM_PAINT()
+	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 
@@ -51,6 +53,7 @@ BOOL chatDlg::OnInitDialog()
 	CDialogEx::OnInitDialog();
 	curl_global_init(CURL_GLOBAL_ALL);
 	SetWindowText(m_friendname);
+	m_hbrBackground = CreateSolidBrush(RGB(240, 240, 240));
 
 	//===============set chat content=================
 	CEdit* pEditCtrl = (CEdit*)GetDlgItem(IDC_EDT_MESSAGE);
@@ -63,27 +66,69 @@ BOOL chatDlg::OnInitDialog()
 	setIconButton(_idc_btn_file, AfxGetApp()->LoadIcon(IDI_ICON_FILE));
 
 	//===============set chat list=================
-	_idc_list_chat.ModifyStyle(LVS_LIST | LVS_ICON | LVS_SMALLICON, LVS_REPORT | WS_VSCROLL);
-	_idc_list_chat.SetExtendedStyle(_idc_list_chat.GetExtendedStyle() | LVS_EX_FULLROWSELECT);
-	_idc_list_chat.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
+	_idc_list_chat.SetMessages(&m_messages);
+	_idc_list_chat.ModifyStyle(0, WS_VSCROLL);
+	_idc_list_chat.SetExtendedStyle(LVS_EX_DOUBLEBUFFER | LVS_EX_TRANSPARENTBKGND);
+	LoadChatMessages();
+	StyleInputArea();
 
-	CString token = TokenManager::getToken();
-	json response;
-	CString errorMessage;
-	if (getMessage(m_friendId, token, response, errorMessage)) {
-		if (response.contains("data") && response["data"].is_array())
-		{
-			json data = response["data"];
-			for (const auto& item : data)
-			{
-				CString content = item.contains("Content") ? Utf8ToCString(item["Content"].get<std::string>()) : CString();
-				_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), content);
-			}
-		}
+	//_idc_list_chat.ModifyStyle(LVS_LIST | LVS_ICON | LVS_SMALLICON, LVS_REPORT | WS_VSCROLL);
+	//_idc_list_chat.SetExtendedStyle(_idc_list_chat.GetExtendedStyle() | LVS_EX_FULLROWSELECT);
+	//_idc_list_chat.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
+	//CString token = TokenManager::getToken();
+	//json response;
+	//CString errorMessage;
+	//if (getMessage(m_friendId, token, response, errorMessage)) {
+	//	if (response.contains("data") && response["data"].is_array())
+	//	{
+	//		json data = response["data"];
+	//		m_messages.clear();
+	//		for (const auto& item : data)
+	//		{
+	//			Message msg = Message::FromJson(item);
+	//			m_messages.push_back(msg);
+	//			int itemIndex = _idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), _T(""));
+	//			_idc_list_chat.SetItemData(itemIndex, m_messages.size() - 1);
+	//			CString debugMsg;
+	//			debugMsg.Format(L"DEBUG: DrawItem index=%d, Content=%s, MessageType=%d\n", itemIndex, msg.GetContent().GetString(), msg.GetMessageType());
+	//			OutputDebugString(debugMsg);
+	//			//_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), content);
+	//		}
+	//	}
+	//}
+	//_idc_list_chat.EnsureVisible(_idc_list_chat.GetItemCount() - 1, FALSE);
+
+	return TRUE;
+}
+
+void chatDlg::OnPaint()
+{
+	CPaintDC dc(this);
+	CRect rect;
+	GetClientRect(&rect);
+
+	CBrush brush(RGB(240, 240, 240));
+	dc.FillRect(&rect, &brush);
+}
+
+HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
+
+	if (nCtlColor == CTLCOLOR_EDIT)
+	{
+		pDC->SetBkColor(RGB(255, 255, 255));
+		return (HBRUSH)GetStockObject(WHITE_BRUSH);
 	}
 
-	_idc_list_chat.Scroll(CSize(0, 0));
-	return TRUE;
+	if (nCtlColor == CTLCOLOR_STATIC)
+	{
+		pDC->SetBkColor(RGB(240, 240, 240));
+		pDC->SetTextColor(RGB(0, 0, 0));
+		return m_hbrBackground;
+	}
+
+	return hbr;
 }
 
 void chatDlg::OnBnClickedBtnSend()
@@ -209,4 +254,70 @@ void chatDlg::setIconButton(CMFCButton& _idc_button, HICON hicon) {
 	_idc_button.SizeToContent();
 	_idc_button.m_bDrawFocus = FALSE;
 	_idc_button.SetWindowPos(nullptr, 0, 0, 32, 32, SWP_NOMOVE | SWP_NOZORDER);
+}
+
+void chatDlg::LoadChatMessages()
+{
+	CString token = TokenManager::getToken();
+	json response;
+	CString errorMessage;
+
+	if (getMessage(m_friendId, token, response, errorMessage))
+	{
+		if (response.contains("data") && response["data"].is_array())
+		{
+			json data = response["data"];
+			m_messages.clear();
+
+			for (const auto& item : data)
+			{
+				Message msg = Message::FromJson(item);
+				m_messages.push_back(msg);
+			}
+
+			_idc_list_chat.Invalidate();
+			_idc_list_chat.UpdateWindow();
+			_idc_list_chat.ScrollToBottom();
+		}
+	}
+	else
+	{
+		AfxMessageBox(_T("Không thể tải tin nhắn: ") + errorMessage);
+	}
+}
+
+void chatDlg::StyleInputArea()
+{
+	CRect clientRect;
+	GetClientRect(&clientRect);
+
+	int inputHeight = 60;
+	int buttonSize = 36;
+	int margin = 10;
+
+	CRect inputRect(margin, clientRect.bottom - inputHeight,
+		clientRect.right - 4 * buttonSize - 5 * margin,
+		clientRect.bottom - margin);
+	_idc_edt_message.MoveWindow(&inputRect);
+
+	int buttonY = clientRect.bottom - (inputHeight + buttonSize) / 2;
+
+	CRect sendRect(inputRect.right + 5, buttonY,
+		inputRect.right + 5 + buttonSize, buttonY + buttonSize);
+	_idc_btn_send.MoveWindow(&sendRect);
+
+	CRect emojiRect(sendRect.right + margin, buttonY,
+		sendRect.right + margin + buttonSize, buttonY + buttonSize);
+	_idc_btn_emoji.MoveWindow(&emojiRect);
+
+	CRect imageRect(emojiRect.right + 5, buttonY,
+		emojiRect.right + 5 + buttonSize, buttonY + buttonSize);
+	_idc_btn_image.MoveWindow(&imageRect);
+
+	CRect fileRect(imageRect.right + 5, buttonY,
+		imageRect.right + 5 + buttonSize, buttonY + buttonSize);
+	_idc_btn_file.MoveWindow(&fileRect);
+
+	CRect chatRect(0, 0, clientRect.right, clientRect.bottom - inputHeight - margin);
+	_idc_list_chat.MoveWindow(&chatRect);
 }

@@ -63,6 +63,9 @@
     <ClInclude Include="Message.h">
       <Filter>models</Filter>
     </ClInclude>
+    <ClInclude Include="ChatListStyle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="chat_app_demo.cpp">
@@ -90,6 +93,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ChatListStyle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -120,8 +126,5 @@
     <Image Include="assets\sending.ico">
       <Filter>Resource Files</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="assets\messages.txt" />
   </ItemGroup>
 </Project>

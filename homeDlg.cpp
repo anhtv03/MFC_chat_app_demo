@@ -201,7 +201,6 @@ void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 void homeDlg::OnEnChangeEdtSearch()
 {
 	CString key;
-	CString localPath = _T("avatar.png"); 
 	_edt_search.GetWindowText(key);
 	key.MakeLower();
 
