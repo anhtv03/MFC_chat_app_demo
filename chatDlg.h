@@ -29,6 +29,11 @@ protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+	virtual void OnOK();
+	afx_msg void OnBnClickedBtnSend();
+	afx_msg void OnBnClickedBtnEmoji();
+	afx_msg void OnBnClickedBtnImage();
+	afx_msg void OnBnClickedBtnFile();
 
 	DECLARE_MESSAGE_MAP()
 	ChatListStyle _idc_list_chat;
@@ -44,7 +49,6 @@ private:
 	std::vector<Message> m_messages;
 	HBRUSH m_hbrBackground;
 public:
-	afx_msg void OnBnClickedBtnSend();
 	void setIconButton(CMFCButton& _idc_button, HICON hicon);
 	void StyleInputArea();
 	void LoadChatMessages();

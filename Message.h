@@ -66,6 +66,13 @@ public:
     }
 
     CString GetFormattedTime() const {
+        CTime today = CTime::GetCurrentTime();
+        if (createdAt.GetYear() == today.GetYear() &&
+            createdAt.GetMonth() == today.GetMonth() &&
+            createdAt.GetDay() == today.GetDay())
+        {
+            return _T("Hôm nay ") + createdAt.Format(_T("%H:%M"));
+        }
         return createdAt.Format(_T("%d/%m/%Y %H:%M"));
     }
 

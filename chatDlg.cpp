@@ -43,6 +43,9 @@ void chatDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(chatDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_SEND, &chatDlg::OnBnClickedBtnSend)
+	ON_BN_CLICKED(IDC_BTN_EMOJI, &chatDlg::OnBnClickedBtnEmoji)
+	ON_BN_CLICKED(IDC_BTN_IMAGE, &chatDlg::OnBnClickedBtnImage)
+	ON_BN_CLICKED(IDC_BTN_FILE, &chatDlg::OnBnClickedBtnFile)
 	ON_WM_PAINT()
 	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
@@ -53,7 +56,6 @@ BOOL chatDlg::OnInitDialog()
 	CDialogEx::OnInitDialog();
 	curl_global_init(CURL_GLOBAL_ALL);
 	SetWindowText(m_friendname);
-	m_hbrBackground = CreateSolidBrush(RGB(240, 240, 240));
 
 	//===============set chat content=================
 	CEdit* pEditCtrl = (CEdit*)GetDlgItem(IDC_EDT_MESSAGE);
@@ -66,37 +68,10 @@ BOOL chatDlg::OnInitDialog()
 	setIconButton(_idc_btn_file, AfxGetApp()->LoadIcon(IDI_ICON_FILE));
 
 	//===============set chat list=================
-	_idc_list_chat.SetMessages(&m_messages);
-	_idc_list_chat.ModifyStyle(0, WS_VSCROLL);
-	_idc_list_chat.SetExtendedStyle(LVS_EX_DOUBLEBUFFER | LVS_EX_TRANSPARENTBKGND);
+	_idc_list_chat.ModifyStyle(0, WS_VSCROLL | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
+
 	LoadChatMessages();
 	StyleInputArea();
-
-	//_idc_list_chat.ModifyStyle(LVS_LIST | LVS_ICON | LVS_SMALLICON, LVS_REPORT | WS_VSCROLL);
-	//_idc_list_chat.SetExtendedStyle(_idc_list_chat.GetExtendedStyle() | LVS_EX_FULLROWSELECT);
-	//_idc_list_chat.InsertColumn(0, _T(""), LVCFMT_LEFT, 600);
-	//CString token = TokenManager::getToken();
-	//json response;
-	//CString errorMessage;
-	//if (getMessage(m_friendId, token, response, errorMessage)) {
-	//	if (response.contains("data") && response["data"].is_array())
-	//	{
-	//		json data = response["data"];
-	//		m_messages.clear();
-	//		for (const auto& item : data)
-	//		{
-	//			Message msg = Message::FromJson(item);
-	//			m_messages.push_back(msg);
-	//			int itemIndex = _idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), _T(""));
-	//			_idc_list_chat.SetItemData(itemIndex, m_messages.size() - 1);
-	//			CString debugMsg;
-	//			debugMsg.Format(L"DEBUG: DrawItem index=%d, Content=%s, MessageType=%d\n", itemIndex, msg.GetContent().GetString(), msg.GetMessageType());
-	//			OutputDebugString(debugMsg);
-	//			//_idc_list_chat.InsertItem(_idc_list_chat.GetItemCount(), content);
-	//		}
-	//	}
-	//}
-	//_idc_list_chat.EnsureVisible(_idc_list_chat.GetItemCount() - 1, FALSE);
 
 	return TRUE;
 }
@@ -128,7 +103,18 @@ HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		return m_hbrBackground;
 	}
 
+	if (pWnd == &_idc_list_chat)
+	{
+		pDC->SetBkColor(RGB(240, 240, 240));
+		return m_hbrBackground;
+	}
+
 	return hbr;
+}
+
+void chatDlg::OnOK()
+{
+	OnBnClickedBtnSend();
 }
 
 void chatDlg::OnBnClickedBtnSend()
@@ -141,11 +127,30 @@ void chatDlg::OnBnClickedBtnSend()
 		return;
 	}
 
+	CString token = TokenManager::getToken();
+	json response;
+	CString errorMessage;
+	std::vector<CString> files;
 
+	if (sendMessage(m_friendId, content, files, token, response, errorMessage)) {
+		LoadChatMessages();
+		_idc_edt_message.SetWindowText(_T(""));
+	}
+}
 
+void chatDlg::OnBnClickedBtnEmoji()
+{
+	
+}
 
-	_idc_edt_message.SetWindowText(_T(""));
+void chatDlg::OnBnClickedBtnImage()
+{
+	
+}
 
+void chatDlg::OnBnClickedBtnFile()
+{
+	
 }
 
 //----------------------Get API--------------------------
@@ -153,8 +158,8 @@ BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CStr
 	CURL* curl = nullptr;
 	CURLcode res = CURLE_OK;
 	std::string response_str;
-	long http_code = 0;	
-	
+	long http_code = 0;
+
 	try {
 		curl = curl_easy_init();
 
@@ -195,67 +200,81 @@ BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CStr
 }
 
 BOOL chatDlg::sendMessage(CString& friendId, CString& content, std::vector<CString> files,
-	CString& token, json& response, CString& errorMessage) 
+	CString& token, json& response, CString& errorMessage)
 {
-	/*try {
-		http_client client(U("http://30.30.30.85:8888"));
-		uri_builder builder(U("/api/message/send-message"));
+	CURL* curl = nullptr;
+	CURLcode res = CURLE_OK;
+	std::string response_str;
+	long http_code = 0;
+	curl_mime* mime = nullptr;
 
-		http_request request(methods::POST);
-		request.set_request_uri(builder.to_uri());
-		request.headers().add(U("Authorization"), U("Bearer ") + std::wstring(token));
+	try {
+		curl = curl_easy_init();
 
-		multipart_form_data form_data;
-		form_data.add_text(U("FriendID"), std::wstring(friendId));
-		form_data.add_text(U("Content"), std::wstring(content));
+		CStringA url(_T("http://30.30.30.85:8888/api/message/send-message"));
+		std::string authHeader = "Authorization: Bearer " + std::string(CT2A(token));
+		struct curl_slist* headers = curl_slist_append(nullptr, authHeader.c_str());
+		mime = curl_mime_init(curl);
 
-		for (const auto& filePath : files) {
-			if (!filePath.IsEmpty()) {
-				auto file_stream = concurrency::streams::file_stream<uint8_t>::open_istream(filePath.GetString()).get();
-				form_data.add_file(U("files"), file_stream, std::wstring(filePath));
+		curl_mimepart* part = curl_mime_addpart(mime);
+		curl_mime_name(part, "FriendID");
+		curl_mime_data(part, CT2A(friendId), CURL_ZERO_TERMINATED);
+
+		if (!content.IsEmpty()) {
+			part = curl_mime_addpart(mime);
+			curl_mime_name(part, "Content");
+			curl_mime_data(part, CW2A(content, CP_UTF8), CURL_ZERO_TERMINATED);
+		}
+
+		for (const auto& filePath : files)
+		{
+			if (!filePath.IsEmpty())
+			{
+				part = curl_mime_addpart(mime);
+				curl_mime_name(part, "files");
+				curl_mime_filedata(part, CT2A(filePath));
 			}
 		}
 
-		request.set_body(form_data);
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_HTTPPOST, 1L);
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_str);
 
-		auto requestTask = client.request(request)
-			.then([&](http_response res) {
-			auto status = res.status_code();
-			return res.extract_json().then([status](web::json::value jsonResponse) {
-				return std::make_pair(status, jsonResponse);
-				});
-				})
-			.then([&](std::pair<int, web::json::value> result) {
-			int status = result.first;
-			web::json::value jsonResponse = result.second;
-			response = json::parse(jsonResponse.serialize());
-			OutputDebugString(L"DEBUG: Parsed JSON: " + Utf8ToCString(response.dump()) + L"\n");
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK) {
+			throw std::runtime_error(curl_easy_strerror(res));
+		}
 
-			if (status != status_codes::OK) {
-				if (response.contains("message") && response["message"].is_string()) {
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		if (http_code != 200) {
+			if (!response_str.empty()) {
+				response = json::parse(response_str, nullptr, false);
+				if (!response.is_discarded() && response.contains("message") && response["message"].is_string())
 					throw std::runtime_error(response["message"].get<std::string>());
-				}
 			}
-				});
-		requestTask.wait();
+		}
+		response = json::parse(response_str, nullptr, false);
+
+		curl_slist_free_all(headers);
+		curl_mime_free(mime);
+		curl_easy_cleanup(curl);
+
 		return TRUE;
 	}
 	catch (const std::exception& e) {
 		errorMessage = Utf8ToCString(e.what());
+		curl_mime_free(mime);
+		curl_easy_cleanup(curl);
 		return FALSE;
-	}*/
+	}
 	return FALSE;
 }
 
 
 //----------------------function design-------------------
-void chatDlg::setIconButton(CMFCButton& _idc_button, HICON hicon) {
-	_idc_button.SetIcon(hicon);
-	_idc_button.SizeToContent();
-	_idc_button.m_bDrawFocus = FALSE;
-	_idc_button.SetWindowPos(nullptr, 0, 0, 32, 32, SWP_NOMOVE | SWP_NOZORDER);
-}
-
 void chatDlg::LoadChatMessages()
 {
 	CString token = TokenManager::getToken();
@@ -274,7 +293,7 @@ void chatDlg::LoadChatMessages()
 				Message msg = Message::FromJson(item);
 				m_messages.push_back(msg);
 			}
-
+			_idc_list_chat.SetMessages(&m_messages);
 			_idc_list_chat.Invalidate();
 			_idc_list_chat.UpdateWindow();
 			_idc_list_chat.ScrollToBottom();
@@ -284,6 +303,17 @@ void chatDlg::LoadChatMessages()
 	{
 		AfxMessageBox(_T("Không thể tải tin nhắn: ") + errorMessage);
 	}
+}
+
+void chatDlg::setIconButton(CMFCButton& _idc_button, HICON hicon) {
+	_idc_button.SetIcon(hicon);
+	_idc_button.SizeToContent();
+	_idc_button.m_bDrawFocus = FALSE;
+	_idc_button.m_bTransparent = TRUE;
+	_idc_button.m_nFlatStyle = CMFCButton::BUTTONSTYLE_NOBORDERS;
+	_idc_button.SetFaceColor(RGB(240, 240, 240), TRUE);
+	_idc_button.SetTextColor(RGB(100, 100, 100));
+	_idc_button.SetWindowPos(nullptr, 0, 0, 32, 32, SWP_NOMOVE | SWP_NOZORDER);
 }
 
 void chatDlg::StyleInputArea()
@@ -321,3 +351,4 @@ void chatDlg::StyleInputArea()
 	CRect chatRect(0, 0, clientRect.right, clientRect.bottom - inputHeight - margin);
 	_idc_list_chat.MoveWindow(&chatRect);
 }
+
