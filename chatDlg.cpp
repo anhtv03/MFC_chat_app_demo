@@ -26,6 +26,7 @@ chatDlg::chatDlg(CString friendId, CString friendName, CWnd* pParent /*=nullptr*
 
 chatDlg::~chatDlg()
 {
+//	KillTimer(1);
 	curl_global_cleanup();
 }
 
@@ -48,6 +49,7 @@ BEGIN_MESSAGE_MAP(chatDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_FILE, &chatDlg::OnBnClickedBtnFile)
 	ON_WM_PAINT()
 	ON_WM_CTLCOLOR()
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -58,8 +60,7 @@ BOOL chatDlg::OnInitDialog()
 	SetWindowText(m_friendname);
 
 	//===============set chat content=================
-	CEdit* pEditCtrl = (CEdit*)GetDlgItem(IDC_EDT_MESSAGE);
-	pEditCtrl->SetCueBanner(_T("Nhập tin nhắn..."));
+	_idc_edt_message.SetCueBanner(_T("Nhập tin nhắn..."), TRUE);
 
 	//===============set image button=================
 	setIconButton(_idc_btn_send, AfxGetApp()->LoadIcon(IDI_ICON_SEND));
@@ -68,10 +69,15 @@ BOOL chatDlg::OnInitDialog()
 	setIconButton(_idc_btn_file, AfxGetApp()->LoadIcon(IDI_ICON_FILE));
 
 	//===============set chat list=================
-	_idc_list_chat.ModifyStyle(0, WS_VSCROLL | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
+	CRect chatRect;
+	GetDlgItem(IDC_LIST_CHAT)->GetWindowRect(&chatRect);
+	ScreenToClient(&chatRect);
+	GetDlgItem(IDC_LIST_CHAT)->DestroyWindow();
+	_idc_list_chat.Create(NULL, NULL, WS_VISIBLE | WS_CHILD, chatRect, this, IDC_LIST_CHAT);
 
 	LoadChatMessages();
 	StyleInputArea();
+	SetTimer(1, 5000, nullptr);
 
 	return TRUE;
 }
@@ -100,13 +106,13 @@ HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	{
 		pDC->SetBkColor(RGB(240, 240, 240));
 		pDC->SetTextColor(RGB(0, 0, 0));
-		return m_hbrBackground;
+		return (HBRUSH)m_hbrBackground;
 	}
 
 	if (pWnd == &_idc_list_chat)
 	{
 		pDC->SetBkColor(RGB(240, 240, 240));
-		return m_hbrBackground;
+		return (HBRUSH)m_hbrBackground;
 	}
 
 	return hbr;
@@ -115,6 +121,14 @@ HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void chatDlg::OnOK()
 {
 	OnBnClickedBtnSend();
+}
+
+void chatDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	if (nIDEvent == 1) {
+		LoadChatMessages();
+	}
+	CDialogEx::OnTimer(nIDEvent);
 }
 
 void chatDlg::OnBnClickedBtnSend()
@@ -140,17 +154,17 @@ void chatDlg::OnBnClickedBtnSend()
 
 void chatDlg::OnBnClickedBtnEmoji()
 {
-	
+
 }
 
 void chatDlg::OnBnClickedBtnImage()
 {
-	
+
 }
 
 void chatDlg::OnBnClickedBtnFile()
 {
-	
+
 }
 
 //----------------------Get API--------------------------
@@ -286,21 +300,37 @@ void chatDlg::LoadChatMessages()
 		if (response.contains("data") && response["data"].is_array())
 		{
 			json data = response["data"];
-			m_messages.clear();
+			CString lastMessageId;
+			if (!m_messages.empty()) {
+				lastMessageId = m_messages.back().GetId();
+			}
 
+			std::vector<Message> newMessages;
 			for (const auto& item : data)
 			{
 				Message msg = Message::FromJson(item);
-				m_messages.push_back(msg);
+				CString msgId = msg.GetId();
+				if (lastMessageId.IsEmpty() || msgId > lastMessageId) {
+					newMessages.push_back(msg);
+				}
 			}
-			_idc_list_chat.SetMessages(&m_messages);
-			_idc_list_chat.Invalidate();
-			_idc_list_chat.UpdateWindow();
-			_idc_list_chat.ScrollToBottom();
+
+			/*std::string jsonStr = response.dump();
+			CString debugStr = Utf8ToCString(jsonStr.c_str());
+			OutputDebugString(_T("ChatDlg: LoadChatMessage: ") + debugStr + _T("\n"));*/
+
+			if (!newMessages.empty()) {
+				m_messages.insert(m_messages.end(), newMessages.begin(), newMessages.end());
+				_idc_list_chat.SetMessages(&m_messages);
+				_idc_list_chat.Invalidate();
+				_idc_list_chat.UpdateWindow();
+				_idc_list_chat.ScrollToBottom();
+			}
 		}
 	}
 	else
 	{
+		OutputDebugString(_T("Lỗi: ") + errorMessage);
 		AfxMessageBox(_T("Không thể tải tin nhắn: ") + errorMessage);
 	}
 }

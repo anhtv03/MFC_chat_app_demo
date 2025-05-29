@@ -1,38 +1,43 @@
-#pragma once
-#include "Message.h"
-#include <vector>
+﻿#pragma once
+#include <afxwin.h>
 #include <gdiplus.h>
+#include <vector>
+#include "Message.h" 
 
 class ChatListStyle : public CWnd
 {
-    DECLARE_DYNAMIC(ChatListStyle)
-
 public:
     ChatListStyle();
     virtual ~ChatListStyle();
 
-    void SetMessages(std::vector<Message>* pMessages);
+    void SetMessages(std::vector<Message>* messages);
     void AddMessage(const Message& msg);
-    void ScrollToBottom();
 
 protected:
     DECLARE_MESSAGE_MAP()
+    afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
     afx_msg void OnPaint();
+    afx_msg void OnSize(UINT nType, int cx, int cy);
     afx_msg BOOL OnEraseBkgnd(CDC* pDC);
     afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
     afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 
 private:
     std::vector<Message>* m_messages;
-    CBrush m_backgroundBrush;
-    CFont m_messageFont;
-    CFont m_timeFont;
     int m_totalHeight;
-    int m_scrollPos;
+	int m_scrollOffset;
+    CScrollBar m_scrollBar;
     ULONG_PTR m_gdiplusToken;
-
-    void DrawMessageBubble(CDC* pDC, CRect& rect, const Message& msg, bool isOwn);
-    void DrawTimestamp(CDC* pDC, CRect& rect, const CString& time);
-    int CalculateMessageHeight(CDC* pDC, const Message& msg, int width);
-    void UpdateLayout();
+    Gdiplus::GdiplusStartupInput m_gdiplusStartupInput;
+    Gdiplus::Font* m_pMsgFont;
+    Gdiplus::Font* m_pTimeFont;
+    Gdiplus::Font* m_pTimeCenterFont;
+public:
+    void RecalculateTotalHeight();
+    void ScrollToBottom();
+    void UpdateScrollInfo();
+    int GetClientRectHeight() const;
+    void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
+    void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
+    int CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width);
 };

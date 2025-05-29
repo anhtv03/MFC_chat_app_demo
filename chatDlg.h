@@ -27,9 +27,11 @@ public:
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual BOOL OnInitDialog();
+	virtual void OnOK();
 	afx_msg void OnPaint();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
-	virtual void OnOK();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnDestroy();
 	afx_msg void OnBnClickedBtnSend();
 	afx_msg void OnBnClickedBtnEmoji();
 	afx_msg void OnBnClickedBtnImage();
@@ -47,7 +49,7 @@ private:
 	CString m_friendId;
 	CString m_friendname;
 	std::vector<Message> m_messages;
-	HBRUSH m_hbrBackground;
+	CBrush m_hbrBackground;
 public:
 	void setIconButton(CMFCButton& _idc_button, HICON hicon);
 	void StyleInputArea();

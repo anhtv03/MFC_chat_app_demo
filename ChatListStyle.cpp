@@ -1,283 +1,340 @@
 ﻿#include "pch.h"
 #include "ChatListStyle.h"
-#include "Message.h"
 #include <gdiplus.h>
-#pragma comment(lib, "gdiplus.lib")
 
-using namespace Gdiplus;
+#pragma comment (lib,"Gdiplus.lib")
 
-IMPLEMENT_DYNAMIC(ChatListStyle, CWnd)
+Gdiplus::GraphicsPath* CreateRoundRectPath(Gdiplus::Rect rect, int radius)
+{
+	auto path = new Gdiplus::GraphicsPath();
+
+	int diameter = radius * 2;
+	if (diameter <= 0) {
+		path->AddRectangle(rect);
+		return path;
+	}
+	if (diameter > rect.Width) diameter = rect.Width;
+	if (diameter > rect.Height) diameter = rect.Height;
+
+	Gdiplus::Rect arcRectTL(rect.X, rect.Y, diameter, diameter);
+	Gdiplus::Rect arcRectTR(rect.GetRight() - diameter, rect.Y, diameter, diameter);
+	Gdiplus::Rect arcRectBR(rect.GetRight() - diameter, rect.GetBottom() - diameter, diameter, diameter);
+	Gdiplus::Rect arcRectBL(rect.X, rect.GetBottom() - diameter, diameter, diameter);
+
+	path->AddArc(arcRectTL, 180, 90);
+	path->AddArc(arcRectTR, 270, 90);
+	path->AddArc(arcRectBR, 0, 90);
+	path->AddArc(arcRectBL, 90, 90);
+
+	path->CloseFigure();
+	return path;
+}
+
+BEGIN_MESSAGE_MAP(ChatListStyle, CWnd)
+	ON_WM_PAINT()
+	ON_WM_CREATE()
+	ON_WM_VSCROLL()
+	ON_WM_MOUSEWHEEL()
+	ON_WM_SIZE()
+	ON_WM_ERASEBKGND()
+END_MESSAGE_MAP()
+
 
 ChatListStyle::ChatListStyle()
+	: m_messages(nullptr), m_totalHeight(0), m_scrollOffset(0),
+	m_pMsgFont(nullptr), m_pTimeFont(nullptr), m_pTimeCenterFont(nullptr)
 {
-    m_messageFont.CreateFont(20, 0, 0, 0, 
-        FW_NORMAL, FALSE, FALSE, 0, 
-        ANSI_CHARSET, OUT_DEFAULT_PRECIS, 
-        CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 
-        DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
-
-    m_timeFont.CreateFont(12, 0, 0, 0, 
-        FW_NORMAL, FALSE, FALSE, 0, 
-        ANSI_CHARSET, OUT_DEFAULT_PRECIS, 
-        CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 
-        DEFAULT_PITCH | FF_SWISS, _T("Segoe UI"));
-
-    m_backgroundBrush.CreateSolidBrush(RGB(240, 240, 240));
-    GdiplusStartupInput gdiInput;
-    GdiplusStartup(&m_gdiplusToken, &gdiInput, nullptr);
+	Gdiplus::GdiplusStartup(&m_gdiplusToken, &m_gdiplusStartupInput, nullptr);
+	m_pMsgFont = new Gdiplus::Font(L"Segoe UI Emoji", 10.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint);
+	m_pTimeFont = new Gdiplus::Font(L"Segoe UI", 8.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint);
+	m_pTimeCenterFont = new Gdiplus::Font(L"Segoe UI", 9.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint);
 }
 
 ChatListStyle::~ChatListStyle()
 {
-    GdiplusShutdown(m_gdiplusToken);
+	delete m_pMsgFont;
+	delete m_pTimeFont;
+	delete m_pTimeCenterFont;
+	Gdiplus::GdiplusShutdown(m_gdiplusToken);
 }
 
-BEGIN_MESSAGE_MAP(ChatListStyle, CWnd)
-    ON_WM_PAINT()
-    ON_WM_ERASEBKGND()
-    ON_WM_VSCROLL()
-    ON_WM_MOUSEWHEEL()
-END_MESSAGE_MAP()
+int ChatListStyle::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+	if (CWnd::OnCreate(lpCreateStruct) == -1) return -1;
+	m_scrollBar.Create(SBS_VERT | WS_CHILD, CRect(0, 0, 0, 0), this, 1);
+	return 0;
+}
+
+void ChatListStyle::OnSize(UINT nType, int cx, int cy)
+{
+	CWnd::OnSize(nType, cx, cy);
+	CRect rc;
+	GetClientRect(&rc);
+	m_scrollBar.MoveWindow(rc.right - 16, rc.top, 16, rc.Height());
+	RecalculateTotalHeight();
+}
 
 void ChatListStyle::SetMessages(std::vector<Message>* messages)
 {
-    m_messages = messages;
-    UpdateLayout();
+	m_messages = messages;
+	m_scrollOffset = 0;
+	RecalculateTotalHeight();
 }
 
 void ChatListStyle::AddMessage(const Message& msg)
 {
-    if (m_messages)
-    {
-        m_messages->push_back(msg);
-        Invalidate();
-        ScrollToBottom();
-    }
+	if (m_messages)
+	{
+		m_messages->push_back(msg);
+		RecalculateTotalHeight();
+		ScrollToBottom();
+	}
+}
+
+int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width)
+{
+	const int bubbleWidthMax = width * 2 / 3;
+	const int spacing = 12;
+	const int bubblePadding = 12;
+	const int avatarSize = 32;
+
+	CString content = msg.GetContent();
+
+	Gdiplus::RectF layoutRect(0, 0, (Gdiplus::REAL)(bubbleWidthMax - 2 * bubblePadding), 9999);
+	Gdiplus::RectF boundingBox;
+	Gdiplus::StringFormat format;
+	format.SetTrimming(Gdiplus::StringTrimmingWord);
+	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
+
+	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
+	if (msg.GetMessageType() == 0) {
+		bubbleHeight = max(bubbleHeight, avatarSize);
+	}
+
+	return bubbleHeight + spacing;
+}
+
+void ChatListStyle::RecalculateTotalHeight()
+{
+	if (!m_messages || !GetSafeHwnd()) return;
+
+	CClientDC dc(this);
+	Gdiplus::Graphics graphics(dc.GetSafeHdc());
+	graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
+
+	CRect client;
+	GetClientRect(&client);
+	int width = client.Width() - 16 - 20;
+	m_totalHeight = 15;
+
+	CString lastDate = _T("");
+	for (const Message& msg : *m_messages)
+	{
+		CString currentDate = msg.GetFormattedTime();
+		if (currentDate != lastDate) {
+			m_totalHeight += 40;
+			lastDate = currentDate;
+		}
+		m_totalHeight += CalculateMessageHeight(graphics, msg, width);
+	}
+	m_totalHeight += 15;
+
+	UpdateScrollInfo();
+	Invalidate();
 }
 
 void ChatListStyle::ScrollToBottom()
 {
-    CRect rc;
-    GetClientRect(&rc);
-    if (m_totalHeight > rc.Height())
-    {
-        m_scrollPos = m_totalHeight - rc.Height();
-        SetScrollPos(SB_VERT, m_scrollPos);
-        Invalidate();
-    }
-}
-
-void ChatListStyle::UpdateLayout()
-{
-    if (!m_messages || m_messages->empty())
-    {
-        m_totalHeight = 0;
-        ShowScrollBar(SB_VERT, FALSE);
-        return;
-    }
-
-    CClientDC dc(this);
-    CRect rc;
-    GetClientRect(&rc);
-
-    int yPos = 10;
-    for (size_t i = 0; i < m_messages->size(); i++)
-    {
-        const Message& msg = (*m_messages)[i];
-        if (i == 0 || msg.GetFormattedTime() != (*m_messages)[i - 1].GetFormattedTime())
-            yPos += 30;
-        yPos += CalculateMessageHeight(&dc, msg, rc.Width() - 80) + 10;
-    }
-    m_totalHeight = yPos + 10;
-
-    SCROLLINFO si = { sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, m_totalHeight - 1, rc.Height(), m_scrollPos };
-    m_scrollPos = max(0, min(m_scrollPos, m_totalHeight - rc.Height()));
-    si.nPos = m_scrollPos;
-    ShowScrollBar(SB_VERT, m_totalHeight > rc.Height());
-    SetScrollInfo(SB_VERT, &si, TRUE);
-    Invalidate();
-}
-
-BOOL ChatListStyle::OnEraseBkgnd(CDC* pDC)
-{
-    return TRUE;
-}
-
-void ChatListStyle::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
-{
-    CRect rc;
-    GetClientRect(&rc);
-    int nCurPos = m_scrollPos;
-
-    switch (nSBCode)
-    {
-    case SB_LINEUP: nCurPos -= 20; break;
-    case SB_LINEDOWN: nCurPos += 20; break;
-    case SB_PAGEUP: nCurPos -= rc.Height(); break;
-    case SB_PAGEDOWN: nCurPos += rc.Height(); break;
-    case SB_THUMBTRACK: case SB_THUMBPOSITION: nCurPos = nPos; break;
-    }
-
-    nCurPos = max(0, min(nCurPos, max(0, m_totalHeight - rc.Height())));
-    if (nCurPos != m_scrollPos)
-    {
-        m_scrollPos = nCurPos;
-        SetScrollPos(SB_VERT, m_scrollPos);
-        Invalidate();
-    }
-    CWnd::OnVScroll(nSBCode, nPos, pScrollBar);
+	int clientHeight = GetClientRectHeight();
+	m_scrollOffset = (m_totalHeight > clientHeight) ? m_totalHeight - clientHeight : 0;
+	UpdateScrollInfo();
+	Invalidate();
 }
 
 BOOL ChatListStyle::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 {
-    CRect rc;
-    GetClientRect(&rc);
-    if (m_totalHeight <= rc.Height()) return TRUE;
+	int clientHeight = GetClientRectHeight();
+	int maxScroll = max(0, m_totalHeight - clientHeight);
+	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset - zDelta / 4));
 
-    int newPos = m_scrollPos - (zDelta / 120) * 40;
-    newPos = max(0, min(newPos, m_totalHeight - rc.Height()));
-    if (newPos != m_scrollPos)
-    {
-        m_scrollPos = newPos;
-        SetScrollPos(SB_VERT, m_scrollPos);
-        UpdateLayout();
-    }
-    return TRUE;
+	UpdateScrollInfo();
+	Invalidate();
+	return TRUE;
+}
+
+void ChatListStyle::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	int oldOffset = m_scrollOffset;
+	int clientHeight = GetClientRectHeight();
+	int maxScroll = m_totalHeight - clientHeight;
+	if (maxScroll < 0) maxScroll = 0;
+
+	switch (nSBCode)
+	{
+	case SB_LINEUP: m_scrollOffset -= 20; break;
+	case SB_LINEDOWN: m_scrollOffset += 20; break;
+	case SB_PAGEUP: m_scrollOffset -= clientHeight; break;
+	case SB_PAGEDOWN: m_scrollOffset += clientHeight; break;
+	case SB_THUMBPOSITION:
+	case SB_THUMBTRACK: m_scrollOffset = nPos; break;
+	case SB_TOP: m_scrollOffset = 0; break;
+	case SB_BOTTOM: m_scrollOffset = maxScroll; break;
+	}
+
+	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset));
+	if (oldOffset != m_scrollOffset)
+	{
+		UpdateScrollInfo();
+		Invalidate();
+	}
+}
+
+void ChatListStyle::UpdateScrollInfo()
+{
+	int clientHeight = GetClientRectHeight();
+
+	SCROLLINFO si = { sizeof(SCROLLINFO), SIF_PAGE | SIF_RANGE | SIF_POS | SIF_DISABLENOSCROLL,
+					 0, m_totalHeight, (UINT)clientHeight, m_scrollOffset };
+
+	m_scrollBar.SetScrollInfo(&si);
+	m_scrollBar.ShowWindow((m_totalHeight > clientHeight) ? SW_SHOW : SW_HIDE);
+}
+
+BOOL ChatListStyle::OnEraseBkgnd(CDC* pDC)
+{
+	return TRUE;
 }
 
 void ChatListStyle::OnPaint()
 {
-    CPaintDC dc(this);
-    CRect rc;
-    GetClientRect(&rc);
+	CPaintDC dc(this);
+	CRect client;
+	GetClientRect(&client);
 
-    CDC memDC;
-    memDC.CreateCompatibleDC(&dc);
-    CBitmap memBitmap;
-    memBitmap.CreateCompatibleBitmap(&dc, rc.Width(), rc.Height());
-    auto* pOldBitmap = memDC.SelectObject(&memBitmap);
-    memDC.FillRect(&rc, &m_backgroundBrush);
+	CDC memDC;
+	memDC.CreateCompatibleDC(&dc);
+	CBitmap memBmp;
+	memBmp.CreateCompatibleBitmap(&dc, client.Width(), client.Height());
+	CBitmap* pOldBmp = memDC.SelectObject(&memBmp);
 
-    if (!m_messages || m_messages->empty())
-    {
-        dc.BitBlt(0, 0, rc.Width(), rc.Height(), &memDC, 0, 0, SRCCOPY);
-        memDC.SelectObject(pOldBitmap);
-        return;
-    }
+	Gdiplus::Graphics graphics(memDC.GetSafeHdc());
+	graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+	graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
+	graphics.Clear(Gdiplus::Color(250, 250, 250));
 
-    Graphics g(memDC.GetSafeHdc());
-    int yPos = 10 - m_scrollPos;
+	int y = 15 - m_scrollOffset;
+	int width = client.Width() - 16 - 20;
 
-    for (size_t i = 0; i < m_messages->size() && yPos <= rc.bottom + 100; i++)
-    {
-        const Message& msg = (*m_messages)[i];
-        int msgHeight = CalculateMessageHeight(&memDC, msg, rc.Width() - 80);
+	if (m_messages)
+	{
+		CString lastDate = _T("");
+		for (const Message& msg : *m_messages)
+		{
+			CString currentDate = msg.GetFormattedTime();
+			if (currentDate != lastDate) {
+				DrawCenterTime(graphics, currentDate, y, width);
+				lastDate = currentDate;
+			}
+			DrawMessage(graphics, msg, y, width);
+		}
+	}
 
-        if (yPos >= -100)
-        {
-            if (i == 0 || msg.GetFormattedTime() != (*m_messages)[i - 1].GetFormattedTime())
-            {
-                if (yPos >= -30 && yPos <= rc.bottom + 30)
-                {
-                    CRect timeRect(0, yPos, rc.Width(), yPos + 20);
-                    DrawTimestamp(&memDC, timeRect, msg.GetFormattedTime());
-                }
-                yPos += 30;
-            }
-
-            if (yPos >= -msgHeight && yPos <= rc.bottom + msgHeight)
-            {
-                CRect msgRect(msg.GetMessageType() == 1 ? rc.Width() - 300 : 60, yPos,
-                    msg.GetMessageType() == 1 ? rc.Width() - 20 : 340, yPos + msgHeight);
-
-                if (msg.GetMessageType() == 0)
-                {
-                    CString localPath = _T("avatar.png");
-                    if (Image* avatar = Image::FromFile(localPath))
-                    {
-                        int avatarSize = 30, centerY = yPos + (msgHeight - avatarSize) / 2;
-                        GraphicsPath path;
-                        path.AddEllipse(20, centerY, avatarSize, avatarSize);
-                        g.SetClip(&path);
-                        g.DrawImage(avatar, 20, centerY, avatarSize, avatarSize);
-                        g.ResetClip();
-                        delete avatar;
-                    }
-                    else
-                    {
-                        CRect avatarRect(20, yPos, 50, yPos + 30);
-                        CBrush avatarBrush(RGB(150, 150, 150));
-                        memDC.FillRect(&avatarRect, &avatarBrush);
-                        memDC.Ellipse(&avatarRect);
-                    }
-                }
-                DrawMessageBubble(&memDC, msgRect, msg, msg.GetMessageType() == 1);
-            }
-        }
-        yPos += msgHeight + 10;
-    }
-
-    dc.BitBlt(0, 0, rc.Width(), rc.Height(), &memDC, 0, 0, SRCCOPY);
-    memDC.SelectObject(pOldBitmap);
+	dc.BitBlt(0, 0, client.Width(), client.Height(), &memDC, 0, 0, SRCCOPY);
+	memDC.SelectObject(pOldBmp);
 }
 
-
-void ChatListStyle::DrawMessageBubble(CDC* pDC, CRect& rect, const Message& msg, bool isOwnMessage)
+void ChatListStyle::DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width)
 {
-    COLORREF bubbleColor = isOwnMessage ? RGB(0, 132, 255) : RGB(230, 230, 230);
-    COLORREF textColor = isOwnMessage ? RGB(255, 255, 255) : RGB(0, 0, 0);
+	const int timeHeight = 30;
 
-    CBrush bubbleBrush(bubbleColor);
-    CPen bubblePen(PS_SOLID, 1, bubbleColor);
-    pDC->SelectObject(&bubbleBrush);
-    pDC->SelectObject(&bubblePen);
+	Gdiplus::SolidBrush brushTime(Gdiplus::Color(120, 120, 120));
+	Gdiplus::StringFormat timeFormat;
+	timeFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
+	timeFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
 
-    CRect textRect(0, 0, rect.Width() - 24, 0);
-    pDC->SelectObject(&m_messageFont);
-    pDC->DrawText(msg.GetContent(), &textRect, DT_CALCRECT | DT_WORDBREAK | DT_LEFT);
-
-    rect.bottom = rect.top + textRect.Height() + 16;
-    pDC->RoundRect(&rect, CPoint(15, 15));
-
-    pDC->SetTextColor(textColor);
-    pDC->SetBkMode(TRANSPARENT);
-    textRect = rect;
-    textRect.DeflateRect(12, 8);
-
-    /*CString content = msg.GetContent().Trim();
-    if (!content.IsEmpty())
-    {*/
-        pDC->DrawText(msg.GetContent(), &textRect, DT_WORDBREAK | DT_LEFT);
-    //}
-    //else if (msg.GetMessageType() == MessageType::IMAGE)
-    //{
-        //CRect imgRect = textRect;
-        //imgRect.bottom = imgRect.top + 100;
-        //CBrush imgBrush(RGB(200, 200, 200));
-        //pDC->FillRect(&imgRect, &imgBrush);
-        //pDC->DrawText(_T("🖼️ Hình ảnh"), &imgRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    //}
-
-    //if (isOwnMessage && msg.IsDelivered())
-    //{
-        //CRect statusRect(rect.right - 25, rect.bottom - 20, rect.right - 5, rect.bottom - 5);
-        //pDC->SetTextColor(RGB(0, 200, 0));
-        //pDC->DrawText(_T("✓"), &statusRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    //}
+	Gdiplus::RectF timeRect(10, (float)y, (float)width, 30);
+	g.DrawString(timeStr, -1, m_pTimeCenterFont, timeRect, &timeFormat, &brushTime);
+	y += 40;
 }
 
-void ChatListStyle::DrawTimestamp(CDC* pDC, CRect& rect, const CString& time)
+void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width)
 {
-    pDC->SetTextColor(RGB(128, 128, 128));
-    pDC->SetBkMode(TRANSPARENT);
-    pDC->SelectObject(&m_timeFont);
-    pDC->DrawText(time, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	const int padding = 15;
+	const int bubbleWidthMax = width * 2 / 3;
+	const int spacing = 12;
+	const int bubblePadding = 12;
+	const int radius = 18;
+	const int avatarSize = 32;
+	const int avatarMargin = 8;
+
+	CStringW content = msg.GetContent();
+	bool isMyMessage = (msg.GetMessageType() == 1);
+
+	Gdiplus::SolidBrush brushText(Gdiplus::Color(30, 30, 30));
+	Gdiplus::SolidBrush brushBubbleSend(Gdiplus::Color(67, 127, 236));
+	Gdiplus::SolidBrush brushBubbleReceive(Gdiplus::Color(218, 218, 218));
+	Gdiplus::SolidBrush brushTextSend(Gdiplus::Color::White);
+	Gdiplus::SolidBrush brushAvatar(Gdiplus::Color(100, 150, 200));
+
+	Gdiplus::RectF layoutRect(0, 0, (Gdiplus::REAL)(bubbleWidthMax - 2 * bubblePadding), 9999);
+	Gdiplus::RectF boundingBox;
+	Gdiplus::StringFormat format;
+	format.SetTrimming(Gdiplus::StringTrimmingWord);
+	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
+
+	int bubbleWidth = min(bubbleWidthMax, max(80, (int)boundingBox.Width + 2 * bubblePadding  +10));
+	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
+
+	int x, avatarX = 0;
+
+	if (isMyMessage) {
+		x = width - bubbleWidth - padding + 10;
+	}
+	else {
+		avatarX = padding;
+		x = padding + avatarSize + avatarMargin;
+		bubbleHeight = max(bubbleHeight, avatarSize);
+	}
+
+	if (!isMyMessage) {
+		Gdiplus::Rect avatarRect(avatarX, y, avatarSize, avatarSize);
+		if (Gdiplus::GraphicsPath* avatarPath = CreateRoundRectPath(avatarRect, avatarSize / 2)) {
+			g.FillPath(&brushAvatar, avatarPath);
+			delete avatarPath;
+		}
+
+		Gdiplus::SolidBrush brushAvatarText(Gdiplus::Color::White);
+		Gdiplus::StringFormat avatarFormat;
+		avatarFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
+		avatarFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+
+		Gdiplus::RectF avatarTextRect(avatarX, y, avatarSize, avatarSize);
+		g.DrawString(L"M", -1, m_pMsgFont, avatarTextRect, &avatarFormat, &brushAvatarText);
+	}
+
+	Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
+	if (Gdiplus::GraphicsPath* path = CreateRoundRectPath(bubbleRect, radius)) {
+		g.FillPath(isMyMessage ? &brushBubbleSend : &brushBubbleReceive, path);
+		delete path;
+	}
+
+	Gdiplus::RectF textRect(
+		(Gdiplus::REAL)(x + bubblePadding),
+		(Gdiplus::REAL)(y + bubblePadding),
+		(Gdiplus::REAL)(bubbleWidth - 2 * bubblePadding),
+		(Gdiplus::REAL)(bubbleHeight - 2 * bubblePadding)
+	);
+
+	format.SetAlignment(Gdiplus::StringAlignmentNear);
+	format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+	g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
+
+	y += bubbleHeight + spacing;
 }
 
-int ChatListStyle::CalculateMessageHeight(CDC* pDC, const Message& msg, int width)
+int ChatListStyle::GetClientRectHeight() const
 {
-    pDC->SelectObject(&m_messageFont);
-    CRect textRect(0, 0, width - 24, 0);
-    pDC->DrawText(msg.GetContent(), &textRect, DT_CALCRECT | DT_WORDBREAK | DT_LEFT);
-    return max(textRect.Height() + 16, 40);
+	CRect rc;
+	GetClientRect(&rc);
+	return rc.Height();
 }
