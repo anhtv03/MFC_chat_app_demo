@@ -8,6 +8,7 @@
 #include "TokenManager.h"
 #include "util.h"
 #include "models/json.hpp"
+#include "EmojiModal.h"
 #define CURL_STATICLIB
 #include <curl.h>
 
@@ -26,7 +27,7 @@ chatDlg::chatDlg(CString friendId, CString friendName, CWnd* pParent /*=nullptr*
 
 chatDlg::~chatDlg()
 {
-//	KillTimer(1);
+	//	KillTimer(1);
 	curl_global_cleanup();
 }
 
@@ -50,6 +51,7 @@ BEGIN_MESSAGE_MAP(chatDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_CTLCOLOR()
 	ON_WM_TIMER()
+	ON_MESSAGE(WM_USER + 1, &chatDlg::OnEmojiSelected)
 END_MESSAGE_MAP()
 
 
@@ -61,6 +63,9 @@ BOOL chatDlg::OnInitDialog()
 
 	//===============set chat content=================
 	_idc_edt_message.SetCueBanner(_T("Nhập tin nhắn..."), TRUE);
+	CFont font;
+	font.CreatePointFont(100, _T("Segoe UI Emoji"));
+	_idc_edt_message.SetFont(&font);
 
 	//===============set image button=================
 	setIconButton(_idc_btn_send, AfxGetApp()->LoadIcon(IDI_ICON_SEND));
@@ -118,6 +123,7 @@ HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	return hbr;
 }
 
+//-----------------event handlers-------------------------
 void chatDlg::OnOK()
 {
 	OnBnClickedBtnSend();
@@ -154,17 +160,99 @@ void chatDlg::OnBnClickedBtnSend()
 
 void chatDlg::OnBnClickedBtnEmoji()
 {
-
+	EmojiModal dlg(this);
+	dlg.LoadEmojiData(_T("D:\\Source Code\\MFC_Code\\MFC_chat_app_demo\\assets\\emoji-test.txt"));
+	if (dlg.DoModal() == IDOK) {}
 }
 
 void chatDlg::OnBnClickedBtnImage()
 {
+	CString token = TokenManager::getToken();
+	json response;
+	CString errorMessage;
+	CString content;
+	std::vector<CString> selectedFiles;
 
+	CString filter = _T("Image Files (*.bmp; *.jpg; *.jpeg; *.png; *.gif; *.tiff)|*.bmp;*.jpg;*.jpeg;*.png;*.gif;*.tiff|")
+		_T("Bitmap Files (*.bmp)|*.bmp|")
+		_T("JPEG Files (*.jpg;*.jpeg)|*.jpg;*.jpeg|")
+		_T("PNG Files (*.png)|*.png|")
+		_T("GIF Files (*.gif)|*.gif|")
+		_T("TIFF Files (*.tiff)|*.tiff|")
+		_T("All Files (*.*)|*.*||");
+
+	CFileDialog openDlg(TRUE, NULL, NULL,
+		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT,
+		filter, this);
+
+	if (openDlg.DoModal() == IDOK) {
+		POSITION pos = openDlg.GetStartPosition();
+		if (pos == NULL) {
+			CString filePath = openDlg.GetPathName();
+			selectedFiles.push_back(filePath);
+		}
+		else {
+			while (pos != NULL) {
+				CString filePath = openDlg.GetNextPathName(pos);
+				selectedFiles.push_back(filePath);
+			}
+		}
+
+		if (!selectedFiles.empty()) {
+			if (sendMessage(m_friendId, content, selectedFiles, token, response, errorMessage)) {
+				LoadChatMessages();
+			}
+		}
+	}
 }
 
 void chatDlg::OnBnClickedBtnFile()
 {
+	CString token = TokenManager::getToken();
+	json response;
+	CString errorMessage;
+	CString content;
+	std::vector<CString> selectedFiles;
 
+	CFileDialog openDlg(TRUE, _T("txt"), NULL,
+		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT,
+		_T("Text Files (*.txt)|*.txt|Data Files (*.dat)|*.dat|All Files (*.*)|*.*||"),
+		this);
+
+	if (openDlg.DoModal() == IDOK) {
+		POSITION pos = openDlg.GetStartPosition();
+		if (pos == NULL) {
+			CString filePath = openDlg.GetPathName();
+			selectedFiles.push_back(filePath);
+		}
+		else {
+			while (pos != NULL) {
+				CString filePath = openDlg.GetNextPathName(pos);
+				selectedFiles.push_back(filePath);
+			}
+		}
+
+		if (!selectedFiles.empty()) {
+			if (sendMessage(m_friendId, content, selectedFiles, token, response, errorMessage)) {
+				LoadChatMessages();
+			}
+		}
+	}
+}
+
+LRESULT chatDlg::OnEmojiSelected(WPARAM wParam, LPARAM lParam)
+{
+	LPCTSTR emoji = (LPCTSTR)wParam;
+	if (emoji)
+	{
+		CString currentText;
+		_idc_edt_message.GetWindowText(currentText);
+		_idc_edt_message.SetWindowText(currentText + CString(emoji));
+		_idc_edt_message.SetFocus();
+		int startPos = currentText.GetLength() + (int)wcslen(emoji);
+		_idc_edt_message.SetSel(startPos, -1);
+	}
+	return 0;
 }
 
 //----------------------Get API--------------------------
@@ -271,6 +359,10 @@ BOOL chatDlg::sendMessage(CString& friendId, CString& content, std::vector<CStri
 			}
 		}
 		response = json::parse(response_str, nullptr, false);
+
+		std::string jsonStr = response.dump();
+		CString debugStr = Utf8ToCString(jsonStr.c_str());
+		OutputDebugString(_T("ChatDlg: SendChatMessage: ") + debugStr + _T("\n"));
 
 		curl_slist_free_all(headers);
 		curl_mime_free(mime);

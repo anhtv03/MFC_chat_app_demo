@@ -66,6 +66,9 @@
     <ClInclude Include="ChatListStyle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EmojiModal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="chat_app_demo.cpp">
@@ -96,6 +99,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ChatListStyle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EmojiModal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

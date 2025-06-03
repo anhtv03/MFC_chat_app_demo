@@ -166,7 +166,6 @@ void loginDlg::OnBnClickedBtnLogin()
 			AfxGetApp()->WriteProfileString(_T("Login"), _T("Password"), _T(""));
 		}
 	}
-
 	homeDlg homeDlg;
 	homeDlg.DoModal();	
 }

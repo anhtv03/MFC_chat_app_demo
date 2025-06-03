@@ -12,6 +12,13 @@ public:
 
     void SetMessages(std::vector<Message>* messages);
     void AddMessage(const Message& msg);
+    void RecalculateTotalHeight();
+    void ScrollToBottom();
+    void UpdateScrollInfo();
+    int GetClientRectHeight() const;
+    void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
+    void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
+    int CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width);
 
 protected:
     DECLARE_MESSAGE_MAP()
@@ -26,18 +33,12 @@ private:
     std::vector<Message>* m_messages;
     int m_totalHeight;
 	int m_scrollOffset;
+    CString m_lastTime;
     CScrollBar m_scrollBar;
     ULONG_PTR m_gdiplusToken;
     Gdiplus::GdiplusStartupInput m_gdiplusStartupInput;
     Gdiplus::Font* m_pMsgFont;
     Gdiplus::Font* m_pTimeFont;
     Gdiplus::Font* m_pTimeCenterFont;
-public:
-    void RecalculateTotalHeight();
-    void ScrollToBottom();
-    void UpdateScrollInfo();
-    int GetClientRectHeight() const;
-    void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
-    void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
-    int CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width);
+
 };

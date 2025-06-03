@@ -202,6 +202,7 @@
     <ClInclude Include="chatDlg.h" />
     <ClInclude Include="ChatListStyle.h" />
     <ClInclude Include="chat_app_demo.h" />
+    <ClInclude Include="EmojiModal.h" />
     <ClInclude Include="loginDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="homeDlg.h" />
@@ -220,6 +221,7 @@
     <ClCompile Include="chatDlg.cpp" />
     <ClCompile Include="ChatListStyle.cpp" />
     <ClCompile Include="chat_app_demo.cpp" />
+    <ClCompile Include="EmojiModal.cpp" />
     <ClCompile Include="loginDlg.cpp" />
     <ClCompile Include="homeDlg.cpp" />
     <ClCompile Include="itemFriendStyle.cpp" />

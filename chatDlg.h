@@ -31,11 +31,11 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
-	afx_msg void OnDestroy();
 	afx_msg void OnBnClickedBtnSend();
 	afx_msg void OnBnClickedBtnEmoji();
 	afx_msg void OnBnClickedBtnImage();
 	afx_msg void OnBnClickedBtnFile();
+	LRESULT OnEmojiSelected(WPARAM wParam, LPARAM lParam);
 
 	DECLARE_MESSAGE_MAP()
 	ChatListStyle _idc_list_chat;
@@ -44,6 +44,7 @@ protected:
 	CMFCButton _idc_btn_emoji;
 	CMFCButton _idc_btn_file;
 	CMFCButton _idc_btn_image;
+
 
 private:
 	CString m_friendId;

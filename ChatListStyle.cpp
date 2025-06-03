@@ -42,7 +42,8 @@ END_MESSAGE_MAP()
 
 ChatListStyle::ChatListStyle()
 	: m_messages(nullptr), m_totalHeight(0), m_scrollOffset(0),
-	m_pMsgFont(nullptr), m_pTimeFont(nullptr), m_pTimeCenterFont(nullptr)
+	m_pMsgFont(nullptr), m_pTimeFont(nullptr), m_pTimeCenterFont(nullptr),
+	m_lastTime(_T(""))
 {
 	Gdiplus::GdiplusStartup(&m_gdiplusToken, &m_gdiplusStartupInput, nullptr);
 	m_pMsgFont = new Gdiplus::Font(L"Segoe UI Emoji", 10.0f, Gdiplus::FontStyleRegular, Gdiplus::UnitPoint);
@@ -78,6 +79,7 @@ void ChatListStyle::SetMessages(std::vector<Message>* messages)
 {
 	m_messages = messages;
 	m_scrollOffset = 0;
+	m_lastTime = _T("");
 	RecalculateTotalHeight();
 }
 
@@ -94,7 +96,7 @@ void ChatListStyle::AddMessage(const Message& msg)
 int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width)
 {
 	const int bubbleWidthMax = width * 2 / 3;
-	const int spacing = 12;
+	const int spacing = 6;
 	const int bubblePadding = 12;
 	const int avatarSize = 32;
 
@@ -261,14 +263,15 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 {
 	const int padding = 15;
 	const int bubbleWidthMax = width * 2 / 3;
-	const int spacing = 12;
+	const int spacing = 6;
 	const int bubblePadding = 12;
-	const int radius = 18;
+	const int radius = 10;
 	const int avatarSize = 32;
 	const int avatarMargin = 8;
 
 	CStringW content = msg.GetContent();
 	bool isMyMessage = (msg.GetMessageType() == 1);
+	CString currentTime = msg.GetCreatedAt().Format(_T("%H:%M %d/%m/%Y"));
 
 	Gdiplus::SolidBrush brushText(Gdiplus::Color(30, 30, 30));
 	Gdiplus::SolidBrush brushBubbleSend(Gdiplus::Color(67, 127, 236));
@@ -282,7 +285,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	format.SetTrimming(Gdiplus::StringTrimmingWord);
 	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
 
-	int bubbleWidth = min(bubbleWidthMax, max(80, (int)boundingBox.Width + 2 * bubblePadding  +10));
+	int bubbleWidth = min(bubbleWidthMax, max(80, (int)boundingBox.Width + 2 * bubblePadding + 10));
 	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
 
 	int x, avatarX = 0;
@@ -291,25 +294,27 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 		x = width - bubbleWidth - padding + 10;
 	}
 	else {
+		bool isDrawAvatar = m_lastTime.IsEmpty() || (currentTime != m_lastTime);
 		avatarX = padding;
 		x = padding + avatarSize + avatarMargin;
-		bubbleHeight = max(bubbleHeight, avatarSize);
-	}
 
-	if (!isMyMessage) {
-		Gdiplus::Rect avatarRect(avatarX, y, avatarSize, avatarSize);
-		if (Gdiplus::GraphicsPath* avatarPath = CreateRoundRectPath(avatarRect, avatarSize / 2)) {
-			g.FillPath(&brushAvatar, avatarPath);
-			delete avatarPath;
+		if (isDrawAvatar) {
+
+			Gdiplus::Rect avatarRect(avatarX, y, avatarSize, avatarSize);
+			if (Gdiplus::GraphicsPath* avatarPath = CreateRoundRectPath(avatarRect, avatarSize / 2)) {
+				g.FillPath(&brushAvatar, avatarPath);
+				delete avatarPath;
+			}
+
+			Gdiplus::SolidBrush brushAvatarText(Gdiplus::Color::White);
+			Gdiplus::StringFormat avatarFormat;
+			avatarFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
+			avatarFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+
+			Gdiplus::RectF avatarTextRect(avatarX, y, avatarSize, avatarSize);
+			g.DrawString(L"M", -1, m_pMsgFont, avatarTextRect, &avatarFormat, &brushAvatarText);
 		}
-
-		Gdiplus::SolidBrush brushAvatarText(Gdiplus::Color::White);
-		Gdiplus::StringFormat avatarFormat;
-		avatarFormat.SetAlignment(Gdiplus::StringAlignmentCenter);
-		avatarFormat.SetLineAlignment(Gdiplus::StringAlignmentCenter);
-
-		Gdiplus::RectF avatarTextRect(avatarX, y, avatarSize, avatarSize);
-		g.DrawString(L"M", -1, m_pMsgFont, avatarTextRect, &avatarFormat, &brushAvatarText);
+		bubbleHeight = max(bubbleHeight, avatarSize);
 	}
 
 	Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
@@ -329,6 +334,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
 	g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
 
+	m_lastTime = currentTime;
 	y += bubbleHeight + spacing;
 }
 
