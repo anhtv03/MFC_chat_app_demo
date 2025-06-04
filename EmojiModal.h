@@ -21,7 +21,6 @@ public:
 	virtual ~EmojiModal();
 
 	void LoadEmojiData(const CString& filePath);
-	afx_msg void OnLbnSelchangeListEmoji();
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -36,7 +35,12 @@ protected:
 
 private:
 	std::vector<EmojiData> m_emojiList;
-	CListBox idc_list_emoji;
-	std::wstring ConvertCodeEmoji(const std::wstring& code);
+	CListCtrl idc_list_emoji;
+	CImageList m_image_list;
 
+	std::wstring ConvertCodeEmoji(const std::wstring& code);
+	void SetupEmoji();
+	HBITMAP CreateEmojiBitmap(const std::wstring& emoji, int size = 32);
+public:
+	afx_msg void OnNMClickListEmoji(NMHDR* pNMHDR, LRESULT* pResult);
 };

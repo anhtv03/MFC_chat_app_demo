@@ -38,16 +38,20 @@ public:
 
 		if (item.contains("Files") && item["Files"].is_array()) {
 			for (const auto& file : item["Files"]) {
-				if (file.is_string()) {
-					msg.files.push_back(Utf8ToCString(file.get<std::string>()));
+				if (file.is_object() && file.contains("urlFile") && file["urlFile"].is_string()) {
+					CString fileUrl = Utf8ToCString(file["urlFile"].get<std::string>());
+					fileUrl = _T("http://30.30.30.85:8888/api") + fileUrl;
+					msg.files.push_back(fileUrl);
 				}
 			}
 		}
 
 		if (item.contains("Images") && item["Images"].is_array()) {
 			for (const auto& image : item["Images"]) {
-				if (image.is_string()) {
-					msg.images.push_back(Utf8ToCString(image.get<std::string>()));
+				if (image.is_object() && image.contains("urlImage") && image["urlImage"].is_string()) {
+					CString imageUrl = Utf8ToCString(image["urlImage"].get<std::string>());
+					imageUrl = _T("http://30.30.30.85:8888/api") + imageUrl;
+					msg.images.push_back(imageUrl);
 				}
 			}
 		}

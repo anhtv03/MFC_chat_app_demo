@@ -290,6 +290,10 @@ BOOL chatDlg::getMessage(CString& friendId, CString& token, json& response, CStr
 		}
 		response = json::parse(response_str, nullptr, false);
 
+		std::string jsonStr = response.dump();
+		CString debugStr = Utf8ToCString(jsonStr.c_str());
+		OutputDebugString(_T("ChatDlg: getMessage: ") + debugStr + _T("\n"));
+
 		curl_slist_free_all(headers);
 		curl_easy_cleanup(curl);
 		return TRUE;

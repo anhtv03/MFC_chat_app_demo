@@ -1,6 +1,8 @@
 ﻿#include "pch.h"
 #include "ChatListStyle.h"
 #include <gdiplus.h>
+#define CURL_STATICLIB
+#include <curl.h>
 
 #pragma comment (lib,"Gdiplus.lib")
 
@@ -259,6 +261,36 @@ void ChatListStyle::DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr,
 	y += 40;
 }
 
+CString DownloadFile(const CString& url, const CString& localPath)
+{
+	CURL* curl = curl_easy_init();
+	FILE* fp = nullptr;
+	_tfopen_s(&fp, localPath, _T("wb"));
+
+	CString cleanUrl = url;
+	cleanUrl.Trim();
+	cleanUrl.Replace(_T("\r"), _T(""));
+	cleanUrl.Replace(_T("\n"), _T(""));
+
+	CT2A urlAnsi(cleanUrl);
+	const char* urlCStr = urlAnsi;
+
+	curl_easy_setopt(curl, CURLOPT_URL, urlCStr);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+	CURLcode res = curl_easy_perform(curl);
+	fclose(fp);
+	curl_easy_cleanup(curl);
+
+	if (res != CURLE_OK) {
+		_tremove(localPath);
+		return _T("");
+	}
+
+	return localPath;
+}
+
 void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width)
 {
 	const int padding = 15;
@@ -268,8 +300,12 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	const int radius = 10;
 	const int avatarSize = 32;
 	const int avatarMargin = 8;
+	const int imageSize = 120;
+	const int fileIconSize = 32;
 
 	CStringW content = msg.GetContent();
+	std::vector<CString> files = msg.GetFiles();
+	std::vector<CString> images = msg.GetImages();
 	bool isMyMessage = (msg.GetMessageType() == 1);
 	CString currentTime = msg.GetCreatedAt().Format(_T("%H:%M %d/%m/%Y"));
 
@@ -286,7 +322,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
 
 	int bubbleWidth = min(bubbleWidthMax, max(80, (int)boundingBox.Width + 2 * bubblePadding + 10));
-	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
+	int bubbleHeight = content.IsEmpty() ? 0 : max(40, (int)boundingBox.Height + 2 * bubblePadding);
 
 	int x, avatarX = 0;
 
@@ -314,28 +350,57 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 			Gdiplus::RectF avatarTextRect(avatarX, y, avatarSize, avatarSize);
 			g.DrawString(L"M", -1, m_pMsgFont, avatarTextRect, &avatarFormat, &brushAvatarText);
 		}
-		bubbleHeight = max(bubbleHeight, avatarSize);
+		bubbleHeight = content.IsEmpty() ? 0 : max(bubbleHeight, avatarSize);
 	}
 
-	Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
-	if (Gdiplus::GraphicsPath* path = CreateRoundRectPath(bubbleRect, radius)) {
-		g.FillPath(isMyMessage ? &brushBubbleSend : &brushBubbleReceive, path);
-		delete path;
+	int totalHeight = bubbleHeight;
+	if (!images.empty()) totalHeight += (images.size() * (imageSize + spacing)) - spacing;
+	if (!files.empty()) totalHeight += (files.size() * (fileIconSize + spacing)) - spacing;
+
+	//=============draw content===========
+	if (!content.IsEmpty()) {
+		Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
+		if (Gdiplus::GraphicsPath* path = CreateRoundRectPath(bubbleRect, radius)) {
+			g.FillPath(isMyMessage ? &brushBubbleSend : &brushBubbleReceive, path);
+			delete path;
+		}
+
+		Gdiplus::RectF textRect(
+			(Gdiplus::REAL)(x + bubblePadding),
+			(Gdiplus::REAL)(y + bubblePadding),
+			(Gdiplus::REAL)(bubbleWidth - 2 * bubblePadding),
+			(Gdiplus::REAL)(bubbleHeight - 2 * bubblePadding)
+		);
+		format.SetAlignment(Gdiplus::StringAlignmentNear);
+		format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+		g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
 	}
 
-	Gdiplus::RectF textRect(
-		(Gdiplus::REAL)(x + bubblePadding),
-		(Gdiplus::REAL)(y + bubblePadding),
-		(Gdiplus::REAL)(bubbleWidth - 2 * bubblePadding),
-		(Gdiplus::REAL)(bubbleHeight - 2 * bubblePadding)
-	);
-
-	format.SetAlignment(Gdiplus::StringAlignmentNear);
-	format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
-	g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
+	//=============draw image===========
+	int currentY = y + bubbleHeight + (bubbleHeight > 0 ? spacing : 0);
+	if (!images.empty()) {
+		for (const auto& imagePath : images) {
+			CString localPath = _T("temp_") + imagePath.Mid(imagePath.ReverseFind(_T('/')) + 1);
+			CString downloadedPath = DownloadFile(imagePath, localPath);
+			if (!downloadedPath.IsEmpty()) {
+				Gdiplus::Bitmap bitmap(downloadedPath);
+				if (bitmap.GetLastStatus() == Gdiplus::Ok) {
+					Gdiplus::Rect imageRect(x + bubblePadding, currentY, imageSize, imageSize);
+					if (Gdiplus::GraphicsPath* imagePath = CreateRoundRectPath(imageRect, 5)) {
+						g.SetClip(imagePath);
+						g.DrawImage(&bitmap, imageRect);
+						g.ResetClip();
+						delete imagePath;
+					}
+				}
+				_tremove(localPath);
+			}
+			currentY += imageSize + spacing;
+		}
+	}
 
 	m_lastTime = currentTime;
-	y += bubbleHeight + spacing;
+	y += totalHeight + spacing;
 }
 
 int ChatListStyle::GetClientRectHeight() const
