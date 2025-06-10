@@ -26,6 +26,8 @@ public:
     void UpdateScrollInfo();
     void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
     void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
+    void OnLButtonDown(UINT nFlags, CPoint point);
+    CString DownloadFile(const CString& url, const CString& localPath);
 
 protected:
     DECLARE_MESSAGE_MAP()
@@ -48,7 +50,9 @@ private:
     Gdiplus::Font* m_pTimeFont;
     Gdiplus::Font* m_pTimeCenterFont;
     std::map<CString, std::pair<CString, bool>> m_imageCache; 
+    std::vector<CString> m_fileIds;
     std::vector<std::future<CString>> m_downloadFutures;
     std::vector<ClickableArea> m_clickableFileAreas;
+    std::vector<Gdiplus::Rect> m_fileClickRects;
 
 };

@@ -40,6 +40,7 @@ BEGIN_MESSAGE_MAP(ChatListStyle, CWnd)
 	ON_WM_MOUSEWHEEL()
 	ON_WM_SIZE()
 	ON_WM_ERASEBKGND()
+	ON_WM_LBUTTONDOWN()
 END_MESSAGE_MAP()
 
 
@@ -159,6 +160,48 @@ void ChatListStyle::OnPaint()
 	memDC.SelectObject(pOldBmp);
 }
 
+void ChatListStyle::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	for (size_t i = 0; i < m_fileClickRects.size(); ++i)
+	{
+		if (m_fileClickRects[i].Contains(Gdiplus::Point(point.x, point.y)))
+		{
+			CString fileId = m_fileIds[i];
+			if (m_messages && !fileId.IsEmpty())
+			{
+				for (const Message& msg : *m_messages)
+				{
+					for (const FileInfo& file : msg.GetFiles())
+					{
+						if (file.id == fileId)
+						{
+							CString tempPath = DownloadFile(file.url, file.fileName);
+							if (!tempPath.IsEmpty())
+							{
+								CFileDialog fileDialog(FALSE, file.fileName, file.fileName, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, _T("All Files (*.*)|*.*||"), nullptr);
+								if (fileDialog.DoModal() == IDOK)
+								{
+									CString savePath = fileDialog.GetPathName();
+									if (CopyFile(tempPath, savePath, FALSE))
+									{
+										_tremove(tempPath);
+									}
+								}
+								else
+								{
+									_tremove(tempPath);
+								}
+							}
+							return;
+						}
+					}
+				}
+			}
+			break;
+		}
+	}
+}
+
 //==========================handler=================================
 
 void ChatListStyle::SetMessages(std::vector<Message>* messages)
@@ -181,12 +224,12 @@ void ChatListStyle::AddMessage(const Message& msg)
 
 int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width)
 {
-	const int bubbleWidthMax = width * 2 / 3;
+	const int bubbleWidthMax = width * 3 / 4;
 	const int spacing = 6;
 	const int bubblePadding = 12;
 	const int avatarSize = 32;
-	const int imageSize = 90;
-	const int fileIconSize = 32;
+	const int imageSize = 150;
+	const int fileIconSize = 16;
 
 	CString content = msg.GetContent();
 
@@ -201,12 +244,12 @@ int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& m
 		bubbleHeight = max(bubbleHeight, avatarSize);
 	}
 
-	std::vector<CString> images = msg.GetImages();
+	std::vector<FileInfo> images = msg.GetImages();
 	if (!images.empty()) {
 		bubbleHeight += (images.size() * (imageSize + spacing)) - spacing;
 	}
 
-	std::vector<CString> files = msg.GetFiles();
+	std::vector<FileInfo> files = msg.GetFiles();
 	if (!files.empty()) {
 		bubbleHeight += (files.size() * (fileIconSize + spacing)) - spacing;
 	}
@@ -276,17 +319,45 @@ void ChatListStyle::DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr,
 	y += 40;
 }
 
-CString DownloadFile(const CString& url, const CString& localPath)
+CString ChatListStyle::DownloadFile(const CString& url, const CString& localPath)
 {
-	std::filesystem::path assetDir("assets");
+	TCHAR tempPath[MAX_PATH];
+	if (GetTempPath(MAX_PATH, tempPath) == 0) {
+		return _T("");
+	}
+
+	CString fileName = localPath;
+	int lastSlash = fileName.ReverseFind(_T('\\'));
+	if (lastSlash >= 0) {
+		fileName = fileName.Mid(lastSlash + 1);
+	}
+	lastSlash = fileName.ReverseFind(_T('/'));
+	if (lastSlash >= 0) {
+		fileName = fileName.Mid(lastSlash + 1);
+	}
+	fileName.Trim(_T(" \t\r\n"));
+
+
+	CString assetLocalPath = CString(tempPath) + fileName;
+	std::wstring wAssetLocalPath = assetLocalPath.GetString();
+	std::filesystem::path fullPath(wAssetLocalPath);
+	std::filesystem::path assetDir = fullPath.parent_path();
 	if (!std::filesystem::exists(assetDir)) {
 		std::filesystem::create_directory(assetDir);
 	}
-	CString assetLocalPath = _T("assets\\") + localPath;
+
 
 	CURL* curl = curl_easy_init();
+	if (!curl) {
+		return _T("");
+	}
+
 	FILE* fp = nullptr;
-	_tfopen_s(&fp, assetLocalPath, _T("wb"));
+	errno_t err = _tfopen_s(&fp, assetLocalPath, _T("wb"));
+	if (err != 0 || fp == nullptr) {
+		curl_easy_cleanup(curl);
+		return _T("");
+	}
 
 	CString cleanUrl = url;
 	cleanUrl.Trim();
@@ -301,32 +372,35 @@ CString DownloadFile(const CString& url, const CString& localPath)
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
 	CURLcode res = curl_easy_perform(curl);
-	fclose(fp);
-	curl_easy_cleanup(curl);
-
 	if (res != CURLE_OK) {
 		_tremove(assetLocalPath);
+		fclose(fp);
+		curl_easy_cleanup(curl);
 		return _T("");
 	}
 
+	fclose(fp);
+	curl_easy_cleanup(curl);
 	return assetLocalPath;
 }
 
 void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width)
 {
 	const int padding = 15;
-	const int bubbleWidthMax = width * 2 / 3;
+	const int bubbleWidthMax = width * 3 / 4;
 	const int spacing = 6;
 	const int bubblePadding = 12;
 	const int radius = 10;
 	const int avatarSize = 32;
 	const int avatarMargin = 8;
-	const int imageSize = 90;
-	const int fileIconSize = 32;
+	const int imageSize = 150;
+	const int fileIconSize = 16;
+	const int fileHeight = 32;
+	const int filePadding = 8;
 
 	CStringW content = msg.GetContent();
-	std::vector<CString> files = msg.GetFiles();
-	std::vector<CString> images = msg.GetImages();
+	std::vector<FileInfo> files = msg.GetFiles();
+	std::vector<FileInfo> images = msg.GetImages();
 	bool isMyMessage = (msg.GetMessageType() == 1);
 	CString currentTime = msg.GetCreatedAt().Format(_T("%H:%M %d/%m/%Y"));
 
@@ -335,20 +409,22 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	Gdiplus::SolidBrush brushBubbleReceive(Gdiplus::Color(218, 218, 218));
 	Gdiplus::SolidBrush brushTextSend(Gdiplus::Color::White);
 	Gdiplus::SolidBrush brushAvatar(Gdiplus::Color(100, 150, 200));
+	Gdiplus::SolidBrush brushFileBubble(Gdiplus::Color(200, 200, 200));
+	Gdiplus::Pen penBorder(isMyMessage ? Gdiplus::Color(50, 100, 200) : Gdiplus::Color(150, 150, 150), 1.0f);
 
 	Gdiplus::RectF layoutRect(0, 0, (Gdiplus::REAL)(bubbleWidthMax - 2 * bubblePadding), 9999);
 	Gdiplus::RectF boundingBox;
 	Gdiplus::StringFormat format;
-	format.SetTrimming(Gdiplus::StringTrimmingWord);
+	format.SetTrimming(Gdiplus::StringTrimmingEllipsisCharacter);
+
 	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
-
-	int bubbleWidth = min(bubbleWidthMax, max(80, (int)boundingBox.Width + 2 * bubblePadding + 10));
+	int contentWidth = (int)boundingBox.Width + 2 * bubblePadding + 10;
+	int bubbleWidth = min(bubbleWidthMax, max(80, contentWidth));
 	int bubbleHeight = content.IsEmpty() ? 0 : max(40, (int)boundingBox.Height + 2 * bubblePadding);
-
 	int x, avatarX = 0;
 
 	if (isMyMessage) {
-		x = width - bubbleWidth - padding + 10;
+		x = width - padding - bubbleWidth;
 	}
 	else {
 		bool isDrawAvatar = m_lastTime.IsEmpty() || (currentTime != m_lastTime);
@@ -356,7 +432,6 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 		x = padding + avatarSize + avatarMargin;
 
 		if (isDrawAvatar) {
-
 			Gdiplus::Rect avatarRect(avatarX, y, avatarSize, avatarSize);
 			if (Gdiplus::GraphicsPath* avatarPath = CreateRoundRectPath(avatarRect, avatarSize / 2)) {
 				g.FillPath(&brushAvatar, avatarPath);
@@ -376,47 +451,102 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 
 	int totalHeight = bubbleHeight;
 	if (!images.empty()) totalHeight += (images.size() * (imageSize + spacing)) - spacing;
-	if (!files.empty()) totalHeight += (files.size() * (fileIconSize + spacing)) - spacing;
+	if (!files.empty()) totalHeight += (files.size() * (fileHeight * 2 + spacing)) - spacing;
 
-	//=============draw content===========
-	if (!content.IsEmpty()) {
-		Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
-		if (Gdiplus::GraphicsPath* path = CreateRoundRectPath(bubbleRect, radius)) {
-			g.FillPath(isMyMessage ? &brushBubbleSend : &brushBubbleReceive, path);
-			delete path;
+	if (!content.IsEmpty() || !images.empty() || !files.empty()) {
+		//=============draw content===========
+		if (!content.IsEmpty()) {
+			Gdiplus::Rect bubbleRect(x, y, bubbleWidth, bubbleHeight);
+			if (Gdiplus::GraphicsPath* path = CreateRoundRectPath(bubbleRect, radius)) {
+				g.FillPath(isMyMessage ? &brushBubbleSend : &brushBubbleReceive, path);
+				delete path;
+			}
+
+			Gdiplus::RectF textRect(
+				(Gdiplus::REAL)(x + bubblePadding),
+				(Gdiplus::REAL)(y + bubblePadding),
+				(Gdiplus::REAL)(bubbleWidth - 2 * bubblePadding),
+				(Gdiplus::REAL)(bubbleHeight - 2 * bubblePadding)
+			);
+			format.SetAlignment(Gdiplus::StringAlignmentNear);
+			format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+			g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
 		}
 
-		Gdiplus::RectF textRect(
-			(Gdiplus::REAL)(x + bubblePadding),
-			(Gdiplus::REAL)(y + bubblePadding),
-			(Gdiplus::REAL)(bubbleWidth - 2 * bubblePadding),
-			(Gdiplus::REAL)(bubbleHeight - 2 * bubblePadding)
-		);
-		format.SetAlignment(Gdiplus::StringAlignmentNear);
-		format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
-		g.DrawString(content, -1, m_pMsgFont, textRect, &format, isMyMessage ? &brushTextSend : &brushText);
-	}
-
-	//=============draw image===========
-	int currentY = y + bubbleHeight + (bubbleHeight > 0 ? spacing : 0);
-	if (!images.empty()) {
-		for (const auto& imagePath : images) {
-			CString localPath = _T("temp_") + imagePath.Mid(imagePath.ReverseFind(_T('/')) + 1);
-			CString downloadedPath = DownloadFile(imagePath, localPath);
-			if (!downloadedPath.IsEmpty()) {
-				Gdiplus::Bitmap bitmap(downloadedPath);
-				if (bitmap.GetLastStatus() == Gdiplus::Ok) {
-					Gdiplus::Rect imageRect(x + bubblePadding, currentY, imageSize, imageSize);
-					if (Gdiplus::GraphicsPath* imagePath = CreateRoundRectPath(imageRect, 5)) {
-						g.SetClip(imagePath);
-						g.DrawImage(&bitmap, imageRect);
-						g.ResetClip();
-						delete imagePath;
+		//=============draw image===========
+		int currentY = y + bubbleHeight + (bubbleHeight > 0 ? spacing : 0);
+		int x_new = isMyMessage ? x - (imageSize / 2) : x;
+		if (!images.empty()) {
+			for (const auto& image : images) {
+				CString localPath = _T("temp_") + image.fileName;
+				CString downloadedPath = DownloadFile(image.url, localPath);
+				if (!downloadedPath.IsEmpty()) {
+					Gdiplus::Bitmap bitmap(downloadedPath);
+					if (bitmap.GetLastStatus() == Gdiplus::Ok) {
+						Gdiplus::Rect imageRect(x_new + bubblePadding, currentY, imageSize, imageSize);
+						if (Gdiplus::GraphicsPath* imagePath = CreateRoundRectPath(imageRect, 5)) {
+							g.SetClip(imagePath);
+							g.DrawImage(&bitmap, imageRect);
+							g.ResetClip();
+							delete imagePath;
+						}
 					}
+					_tremove(localPath);
 				}
-				_tremove(localPath);
+				currentY += imageSize + spacing;
 			}
-			currentY += imageSize + spacing;
+		}
+
+		//=============draw file===========
+		if (!files.empty()) {
+			int fileY = y + bubbleHeight + (bubbleHeight > 0 ? spacing : 0);
+			if (!images.empty()) {
+				fileY = currentY;
+			}
+
+			for (const auto& file : files) {
+				int fileWidth = min(bubbleWidthMax, bubbleWidth);
+				int x_new = isMyMessage ? x - fileWidth : x;
+
+				Gdiplus::Rect fileBubbleRect(
+					x_new,
+					fileY,
+					fileWidth * 2,
+					fileHeight
+				);
+				if (Gdiplus::GraphicsPath* filePath = CreateRoundRectPath(fileBubbleRect, radius)) {
+					g.FillPath(&brushFileBubble, filePath);
+					g.DrawPath(&penBorder, filePath);
+					delete filePath;
+				}
+
+				Gdiplus::SolidBrush iconBrush(Gdiplus::Color(100, 100, 100));
+				Gdiplus::RectF iconRect(
+					(Gdiplus::REAL)(x_new + filePadding),
+					(Gdiplus::REAL)(fileY + (fileHeight - fileIconSize) / 2),
+					(Gdiplus::REAL)fileIconSize,
+					(Gdiplus::REAL)fileIconSize
+				);
+				g.DrawString(L"↓", -1, m_pMsgFont, iconRect, &format, &iconBrush);
+
+				Gdiplus::RectF fileTextRect(
+					(Gdiplus::REAL)(x_new + filePadding + fileIconSize + 5),
+					(Gdiplus::REAL)(fileY + (fileHeight * 2 - 16) / 4),
+					(Gdiplus::REAL)(fileWidth - 2 * filePadding - fileIconSize - 5),
+					(Gdiplus::REAL)(fileHeight - 2 * filePadding)
+				);
+				g.DrawString(file.fileName, -1, m_pMsgFont, fileTextRect, &format, isMyMessage ? &brushTextSend : &brushText);
+
+				Gdiplus::Rect clickRect(
+					x_new,
+					fileY,
+					fileWidth * 2,
+					fileHeight
+				);
+				m_fileClickRects.push_back(clickRect);
+				m_fileIds.push_back(file.id);
+				fileY += fileHeight * 2 + spacing;
+			}
 		}
 	}
 
