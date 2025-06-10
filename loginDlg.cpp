@@ -166,16 +166,19 @@ void loginDlg::OnBnClickedBtnLogin()
 			AfxGetApp()->WriteProfileString(_T("Login"), _T("Password"), _T(""));
 		}
 	}
+	ShowWindow(SW_HIDE);
 	homeDlg homeDlg;
-	homeDlg.DoModal();	
+	homeDlg.DoModal();
+	ShowWindow(SW_SHOW);
 }
 
 void loginDlg::OnStnClickedTxtRegister()
 {
+	ShowWindow(SW_HIDE);
 	registerDlg registerDlg;
-	if (registerDlg.DoModal() == IDOK)
-	{
-	}
+	registerDlg.DoModal() == IDOK;
+	ShowWindow(SW_SHOW);
+
 }
 
 //----------------------Get API--------------------------

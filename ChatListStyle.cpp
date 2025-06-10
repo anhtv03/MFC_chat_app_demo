@@ -259,32 +259,41 @@ int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& m
 	const int bubblePadding = 12;
 	const int avatarSize = 32;
 	const int imageSize = 150;
-	const int fileIconSize = 16;
+	const int fileHeight = 32;
 
 	CString content = msg.GetContent();
-
-	Gdiplus::RectF layoutRect(0, 0, (Gdiplus::REAL)(bubbleWidthMax - 2 * bubblePadding), 9999);
-	Gdiplus::RectF boundingBox;
-	Gdiplus::StringFormat format;
-	format.SetTrimming(Gdiplus::StringTrimmingWord);
-	g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
-
-	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
-	if (msg.GetMessageType() == 0) {
-		bubbleHeight = max(bubbleHeight, avatarSize);
-	}
-
+	int totalMessageHeight = 0;
 	std::vector<FileInfo> images = msg.GetImages();
-	if (!images.empty()) {
-		bubbleHeight += (images.size() * (imageSize + spacing)) - spacing;
-	}
-
 	std::vector<FileInfo> files = msg.GetFiles();
-	if (!files.empty()) {
-		bubbleHeight += (files.size() * (fileIconSize + spacing)) - spacing;
+
+	if (!content.IsEmpty()) {
+		Gdiplus::RectF layoutRect(0, 0, (Gdiplus::REAL)(bubbleWidthMax - 2 * bubblePadding), 9999);
+		Gdiplus::RectF boundingBox;
+		Gdiplus::StringFormat format;
+		format.SetTrimming(Gdiplus::StringTrimmingWord);
+		g.MeasureString(content, -1, m_pMsgFont, layoutRect, &format, &boundingBox);
+		totalMessageHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
 	}
 
-	return bubbleHeight + spacing;
+	if (msg.GetMessageType() == 0) {
+		totalMessageHeight = max(totalMessageHeight, avatarSize);
+	}
+
+	if (!images.empty()) {
+		if (totalMessageHeight > 0) {
+			totalMessageHeight += spacing;
+		}
+		totalMessageHeight += (images.size() * imageSize) + ((images.size() > 0) ? (images.size() - 1) * spacing : 0);
+	}
+
+	if (!files.empty()) {
+		if (totalMessageHeight > 0) {
+			totalMessageHeight += spacing;
+		}
+		totalMessageHeight += (files.size() * (fileHeight * 2)) + ((files.size() > 0) ? (files.size() - 1) * spacing : 0);
+	}
+
+	return totalMessageHeight;
 }
 
 void ChatListStyle::RecalculateTotalHeight()
@@ -299,6 +308,7 @@ void ChatListStyle::RecalculateTotalHeight()
 	GetClientRect(&client);
 	int width = client.Width() - 16 - 20;
 	m_totalHeight = 15;
+	bool isFirstMessage = true;
 
 	CString lastDate = _T("");
 	for (const Message& msg : *m_messages)
@@ -307,10 +317,16 @@ void ChatListStyle::RecalculateTotalHeight()
 		if (currentDate != lastDate) {
 			m_totalHeight += 40;
 			lastDate = currentDate;
+			isFirstMessage = true;
+		}
+		if (!isFirstMessage)
+		{
+			m_totalHeight += 6;
 		}
 		m_totalHeight += CalculateMessageHeight(graphics, msg, width);
+		isFirstMessage = false;
 	}
-	m_totalHeight += 15;
+	m_totalHeight += 110;
 
 	UpdateScrollInfo();
 	Invalidate();
@@ -427,8 +443,11 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	const int fileIconSize = 16;
 	const int fileHeight = 32;
 	const int filePadding = 8;
+	const int statusIconSize = 12;
+	const int statusIconMargin = 5;
 
 	CStringW content = msg.GetContent();
+	int isSend = msg.GetIsSend();
 	std::vector<FileInfo> files = msg.GetFiles();
 	std::vector<FileInfo> images = msg.GetImages();
 	bool isMyMessage = (msg.GetMessageType() == 1);
@@ -581,8 +600,43 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 		}
 	}
 
+	//=============draw isSend===========
+	if (isMyMessage && !(content.IsEmpty() || images.empty() || files.empty())) {
+		int statusX = x - statusIconSize - statusIconMargin;
+		int statusY = y + totalHeight - statusIconSize - 3;
+		DrawStatusIcon(g, msg.GetIsSend(), statusX, statusY);
+	}
+
 	m_lastTime = currentTime;
 	y += totalHeight + spacing;
+}
+
+void ChatListStyle::DrawStatusIcon(Gdiplus::Graphics& g, int status, int x, int y) {
+	if (status == 0) {
+		Gdiplus::Pen pen(Gdiplus::Color(150, 150, 150), 1.5f);
+		Gdiplus::Point checkMark[3] = {
+			{x, y + 3},
+			{x + 3, y + 6},
+			{x + 8, y}
+		};
+		g.DrawLines(&pen, checkMark, 3);
+	}
+	else if (status == 1) {
+		Gdiplus::Pen pen(Gdiplus::Color(67, 127, 236), 1.5f);
+		Gdiplus::Point checkMark1[3] = {
+			{x, y + 3},
+			{x + 3, y + 6},
+			{x + 8, y}
+		};
+		g.DrawLines(&pen, checkMark1, 3);
+
+		Gdiplus::Point checkMark2[3] = {
+			{x + 4, y + 3},
+			{x + 7, y + 6},
+			{x + 12, y}
+		};
+		g.DrawLines(&pen, checkMark2, 3);
+	}
 }
 
 int ChatListStyle::GetClientRectHeight() const

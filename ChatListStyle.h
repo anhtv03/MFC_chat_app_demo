@@ -25,6 +25,7 @@ public:
     void ScrollToBottom();
     void UpdateScrollInfo();
     void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
+    void DrawStatusIcon(Gdiplus::Graphics& g, int status, int x, int y);
     void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
     void OnLButtonDown(UINT nFlags, CPoint point);
     CString DownloadFile(const CString& url, const CString& localPath);
