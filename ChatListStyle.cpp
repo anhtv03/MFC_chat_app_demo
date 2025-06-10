@@ -6,6 +6,7 @@
 #include <curl.h>
 
 #pragma comment (lib,"Gdiplus.lib")
+namespace fs = std::filesystem;
 
 Gdiplus::GraphicsPath* CreateRoundRectPath(Gdiplus::Rect rect, int radius)
 {
@@ -147,7 +148,6 @@ void ChatListStyle::OnPaint()
 		CString lastDate = _T("");
 		m_fileClickRects.clear();
 		m_fileIds.clear();
-		OutputDebugString(_T("Drawing message: tao xoa ne\n"));
 
 		for (const Message& msg : *m_messages)
 		{
@@ -482,7 +482,6 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	int totalHeight = bubbleHeight;
 	if (!images.empty()) totalHeight += (images.size() * (imageSize + spacing)) - spacing;
 	if (!files.empty()) totalHeight += (files.size() * (fileHeight * 2 + spacing)) - spacing;
-	
 
 	//==================================draw Message==================================
 	if (!content.IsEmpty() || !images.empty() || !files.empty()) {
@@ -511,23 +510,29 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 		if (!images.empty()) {
 			for (const auto& image : images) {
 				CString localPath = _T("temp_") + image.id + _T("_") + image.fileName;
-				CString downloadedPath = DownloadFile(image.url, localPath);
-				if (!downloadedPath.IsEmpty()) {
-					Gdiplus::Bitmap bitmap(downloadedPath);
-					if (bitmap.GetLastStatus() == Gdiplus::Ok) {
-						Gdiplus::Rect imageRect(x_new + bubblePadding, currentY, imageSize, imageSize);
-						if (Gdiplus::GraphicsPath* imagePath = CreateRoundRectPath(imageRect, 5)) {
-							g.SetClip(imagePath);
-							g.DrawImage(&bitmap, imageRect);
-							g.ResetClip();
-							delete imagePath;
-
-							Gdiplus::Rect clickRect(x_new, currentY, imageSize, imageSize);
-							m_fileClickRects.push_back(clickRect);
-							m_fileIds.push_back(image.id);
-						}
+				TCHAR tempPath[MAX_PATH];
+				GetTempPath(MAX_PATH, tempPath);
+				CString fullPath = CString(tempPath) + localPath;
+				fs::path fsPath(fullPath.GetString());
+				if (!fs::exists(fsPath)) {
+					CString downloadedPath = DownloadFile(image.url, localPath);
+					if (downloadedPath.IsEmpty()) {
+						continue;
 					}
-					_tremove(localPath);
+				}
+				Gdiplus::Bitmap bitmap(fullPath);
+				if (bitmap.GetLastStatus() == Gdiplus::Ok) {
+					Gdiplus::Rect imageRect(x_new + bubblePadding, currentY, imageSize, imageSize);
+					if (Gdiplus::GraphicsPath* imagePath = CreateRoundRectPath(imageRect, 5)) {
+						g.SetClip(imagePath);
+						g.DrawImage(&bitmap, imageRect);
+						g.ResetClip();
+						delete imagePath;
+
+						Gdiplus::Rect clickRect(x_new, currentY, imageSize, imageSize);
+						m_fileClickRects.push_back(clickRect);
+						m_fileIds.push_back(image.id);
+					}
 				}
 				currentY += imageSize + spacing;
 			}
@@ -571,7 +576,6 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 				Gdiplus::Rect clickRect(x_new, fileY, fileWidth * 2, fileHeight);
 				m_fileClickRects.push_back(clickRect);
 				m_fileIds.push_back(file.id);
-				OutputDebugString(_T("Drawing message:tao tao ne\n"));
 				fileY += fileHeight * 2 + spacing;
 			}
 		}
