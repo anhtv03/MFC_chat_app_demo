@@ -145,6 +145,10 @@ void ChatListStyle::OnPaint()
 	if (m_messages)
 	{
 		CString lastDate = _T("");
+		m_fileClickRects.clear();
+		m_fileIds.clear();
+		OutputDebugString(_T("Drawing message: tao xoa ne\n"));
+
 		for (const Message& msg : *m_messages)
 		{
 			CString currentDate = msg.GetFormattedTime();
@@ -171,6 +175,7 @@ void ChatListStyle::OnLButtonDown(UINT nFlags, CPoint point)
 			{
 				for (const Message& msg : *m_messages)
 				{
+					// Check files in the message
 					for (const FileInfo& file : msg.GetFiles())
 					{
 						if (file.id == fileId)
@@ -179,6 +184,31 @@ void ChatListStyle::OnLButtonDown(UINT nFlags, CPoint point)
 							if (!tempPath.IsEmpty())
 							{
 								CFileDialog fileDialog(FALSE, file.fileName, file.fileName, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, _T("All Files (*.*)|*.*||"), nullptr);
+								if (fileDialog.DoModal() == IDOK)
+								{
+									CString savePath = fileDialog.GetPathName();
+									if (CopyFile(tempPath, savePath, FALSE))
+									{
+										_tremove(tempPath);
+									}
+								}
+								else
+								{
+									_tremove(tempPath);
+								}
+							}
+							return;
+						}
+					}
+					// Check images in message
+					for (const FileInfo& image : msg.GetImages())
+					{
+						if (image.id == fileId)
+						{
+							CString tempPath = DownloadFile(image.url, image.fileName);
+							if (!tempPath.IsEmpty())
+							{
+								CFileDialog fileDialog(FALSE, image.fileName, image.fileName, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, _T("All Files (*.*)|*.*||"), nullptr);
 								if (fileDialog.DoModal() == IDOK)
 								{
 									CString savePath = fileDialog.GetPathName();
@@ -452,7 +482,9 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	int totalHeight = bubbleHeight;
 	if (!images.empty()) totalHeight += (images.size() * (imageSize + spacing)) - spacing;
 	if (!files.empty()) totalHeight += (files.size() * (fileHeight * 2 + spacing)) - spacing;
+	
 
+	//==================================draw Message==================================
 	if (!content.IsEmpty() || !images.empty() || !files.empty()) {
 		//=============draw content===========
 		if (!content.IsEmpty()) {
@@ -478,7 +510,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 		int x_new = isMyMessage ? x - (imageSize / 2) : x;
 		if (!images.empty()) {
 			for (const auto& image : images) {
-				CString localPath = _T("temp_") + image.fileName;
+				CString localPath = _T("temp_") + image.id + _T("_") + image.fileName;
 				CString downloadedPath = DownloadFile(image.url, localPath);
 				if (!downloadedPath.IsEmpty()) {
 					Gdiplus::Bitmap bitmap(downloadedPath);
@@ -489,6 +521,10 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 							g.DrawImage(&bitmap, imageRect);
 							g.ResetClip();
 							delete imagePath;
+
+							Gdiplus::Rect clickRect(x_new, currentY, imageSize, imageSize);
+							m_fileClickRects.push_back(clickRect);
+							m_fileIds.push_back(image.id);
 						}
 					}
 					_tremove(localPath);
@@ -508,12 +544,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 				int fileWidth = min(bubbleWidthMax, bubbleWidth);
 				int x_new = isMyMessage ? x - fileWidth : x;
 
-				Gdiplus::Rect fileBubbleRect(
-					x_new,
-					fileY,
-					fileWidth * 2,
-					fileHeight
-				);
+				Gdiplus::Rect fileBubbleRect(x_new, fileY, fileWidth * 2, fileHeight);
 				if (Gdiplus::GraphicsPath* filePath = CreateRoundRectPath(fileBubbleRect, radius)) {
 					g.FillPath(&brushFileBubble, filePath);
 					g.DrawPath(&penBorder, filePath);
@@ -537,14 +568,10 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 				);
 				g.DrawString(file.fileName, -1, m_pMsgFont, fileTextRect, &format, isMyMessage ? &brushTextSend : &brushText);
 
-				Gdiplus::Rect clickRect(
-					x_new,
-					fileY,
-					fileWidth * 2,
-					fileHeight
-				);
+				Gdiplus::Rect clickRect(x_new, fileY, fileWidth * 2, fileHeight);
 				m_fileClickRects.push_back(clickRect);
 				m_fileIds.push_back(file.id);
+				OutputDebugString(_T("Drawing message:tao tao ne\n"));
 				fileY += fileHeight * 2 + spacing;
 			}
 		}
