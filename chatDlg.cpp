@@ -131,10 +131,10 @@ void chatDlg::OnOK()
 
 void chatDlg::OnTimer(UINT_PTR nIDEvent)
 {
-	if (nIDEvent == 1) {
+	/*if (nIDEvent == 1) {
 		LoadChatMessages();
 	}
-	CDialogEx::OnTimer(nIDEvent);
+	CDialogEx::OnTimer(nIDEvent);*/
 }
 
 void chatDlg::OnBnClickedBtnSend()

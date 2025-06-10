@@ -5,22 +5,27 @@
 #include <future>
 #include "Message.h" 
 
+struct ClickableArea {
+    Gdiplus::Rect rect;
+    CString url;
+    CString fileName;
+};
+
 class ChatListStyle : public CWnd
 {
 public:
     ChatListStyle();
     virtual ~ChatListStyle();
 
+    int GetClientRectHeight() const;
+    int CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width);
     void SetMessages(std::vector<Message>* messages);
     void AddMessage(const Message& msg);
     void RecalculateTotalHeight();
     void ScrollToBottom();
     void UpdateScrollInfo();
-    int GetClientRectHeight() const;
     void DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width);
     void DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width);
-    int CalculateMessageHeight(Gdiplus::Graphics& g, const Message& msg, int width);
-    void CheckDownloadFutures();
 
 protected:
     DECLARE_MESSAGE_MAP()
@@ -44,5 +49,6 @@ private:
     Gdiplus::Font* m_pTimeCenterFont;
     std::map<CString, std::pair<CString, bool>> m_imageCache; 
     std::vector<std::future<CString>> m_downloadFutures;
+    std::vector<ClickableArea> m_clickableFileAreas;
 
 };

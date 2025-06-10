@@ -185,6 +185,8 @@ int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& m
 	const int spacing = 6;
 	const int bubblePadding = 12;
 	const int avatarSize = 32;
+	const int imageSize = 90;
+	const int fileIconSize = 32;
 
 	CString content = msg.GetContent();
 
@@ -197,6 +199,16 @@ int ChatListStyle::CalculateMessageHeight(Gdiplus::Graphics& g, const Message& m
 	int bubbleHeight = max(40, (int)boundingBox.Height + 2 * bubblePadding);
 	if (msg.GetMessageType() == 0) {
 		bubbleHeight = max(bubbleHeight, avatarSize);
+	}
+
+	std::vector<CString> images = msg.GetImages();
+	if (!images.empty()) {
+		bubbleHeight += (images.size() * (imageSize + spacing)) - spacing;
+	}
+
+	std::vector<CString> files = msg.GetFiles();
+	if (!files.empty()) {
+		bubbleHeight += (files.size() * (fileIconSize + spacing)) - spacing;
 	}
 
 	return bubbleHeight + spacing;
