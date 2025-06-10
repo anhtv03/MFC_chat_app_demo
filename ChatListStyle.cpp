@@ -1,6 +1,7 @@
 ﻿#include "pch.h"
 #include "ChatListStyle.h"
 #include <gdiplus.h>
+#include <filesystem>
 #define CURL_STATICLIB
 #include <curl.h>
 
@@ -76,6 +77,89 @@ void ChatListStyle::OnSize(UINT nType, int cx, int cy)
 	m_scrollBar.MoveWindow(rc.right - 16, rc.top, 16, rc.Height());
 	RecalculateTotalHeight();
 }
+
+BOOL ChatListStyle::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	int clientHeight = GetClientRectHeight();
+	int maxScroll = max(0, m_totalHeight - clientHeight);
+	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset - zDelta / 4));
+
+	UpdateScrollInfo();
+	Invalidate();
+	return TRUE;
+}
+
+void ChatListStyle::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	int oldOffset = m_scrollOffset;
+	int clientHeight = GetClientRectHeight();
+	int maxScroll = m_totalHeight - clientHeight;
+	if (maxScroll < 0) maxScroll = 0;
+
+	switch (nSBCode)
+	{
+	case SB_LINEUP: m_scrollOffset -= 20; break;
+	case SB_LINEDOWN: m_scrollOffset += 20; break;
+	case SB_PAGEUP: m_scrollOffset -= clientHeight; break;
+	case SB_PAGEDOWN: m_scrollOffset += clientHeight; break;
+	case SB_THUMBPOSITION:
+	case SB_THUMBTRACK: m_scrollOffset = nPos; break;
+	case SB_TOP: m_scrollOffset = 0; break;
+	case SB_BOTTOM: m_scrollOffset = maxScroll; break;
+	}
+
+	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset));
+	if (oldOffset != m_scrollOffset)
+	{
+		UpdateScrollInfo();
+		Invalidate();
+	}
+}
+
+BOOL ChatListStyle::OnEraseBkgnd(CDC* pDC)
+{
+	return TRUE;
+}
+
+void ChatListStyle::OnPaint()
+{
+	CPaintDC dc(this);
+	CRect client;
+	GetClientRect(&client);
+
+	CDC memDC;
+	memDC.CreateCompatibleDC(&dc);
+	CBitmap memBmp;
+	memBmp.CreateCompatibleBitmap(&dc, client.Width(), client.Height());
+	CBitmap* pOldBmp = memDC.SelectObject(&memBmp);
+
+	Gdiplus::Graphics graphics(memDC.GetSafeHdc());
+	graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+	graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
+	graphics.Clear(Gdiplus::Color(250, 250, 250));
+
+	int y = 15 - m_scrollOffset;
+	int width = client.Width() - 16 - 20;
+
+	if (m_messages)
+	{
+		CString lastDate = _T("");
+		for (const Message& msg : *m_messages)
+		{
+			CString currentDate = msg.GetFormattedTime();
+			if (currentDate != lastDate) {
+				DrawCenterTime(graphics, currentDate, y, width);
+				lastDate = currentDate;
+			}
+			DrawMessage(graphics, msg, y, width);
+		}
+	}
+
+	dc.BitBlt(0, 0, client.Width(), client.Height(), &memDC, 0, 0, SRCCOPY);
+	memDC.SelectObject(pOldBmp);
+}
+
+//==========================handler=================================
 
 void ChatListStyle::SetMessages(std::vector<Message>* messages)
 {
@@ -155,44 +239,6 @@ void ChatListStyle::ScrollToBottom()
 	Invalidate();
 }
 
-BOOL ChatListStyle::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
-{
-	int clientHeight = GetClientRectHeight();
-	int maxScroll = max(0, m_totalHeight - clientHeight);
-	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset - zDelta / 4));
-
-	UpdateScrollInfo();
-	Invalidate();
-	return TRUE;
-}
-
-void ChatListStyle::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
-{
-	int oldOffset = m_scrollOffset;
-	int clientHeight = GetClientRectHeight();
-	int maxScroll = m_totalHeight - clientHeight;
-	if (maxScroll < 0) maxScroll = 0;
-
-	switch (nSBCode)
-	{
-	case SB_LINEUP: m_scrollOffset -= 20; break;
-	case SB_LINEDOWN: m_scrollOffset += 20; break;
-	case SB_PAGEUP: m_scrollOffset -= clientHeight; break;
-	case SB_PAGEDOWN: m_scrollOffset += clientHeight; break;
-	case SB_THUMBPOSITION:
-	case SB_THUMBTRACK: m_scrollOffset = nPos; break;
-	case SB_TOP: m_scrollOffset = 0; break;
-	case SB_BOTTOM: m_scrollOffset = maxScroll; break;
-	}
-
-	m_scrollOffset = max(0, min(maxScroll, m_scrollOffset));
-	if (oldOffset != m_scrollOffset)
-	{
-		UpdateScrollInfo();
-		Invalidate();
-	}
-}
-
 void ChatListStyle::UpdateScrollInfo()
 {
 	int clientHeight = GetClientRectHeight();
@@ -202,49 +248,6 @@ void ChatListStyle::UpdateScrollInfo()
 
 	m_scrollBar.SetScrollInfo(&si);
 	m_scrollBar.ShowWindow((m_totalHeight > clientHeight) ? SW_SHOW : SW_HIDE);
-}
-
-BOOL ChatListStyle::OnEraseBkgnd(CDC* pDC)
-{
-	return TRUE;
-}
-
-void ChatListStyle::OnPaint()
-{
-	CPaintDC dc(this);
-	CRect client;
-	GetClientRect(&client);
-
-	CDC memDC;
-	memDC.CreateCompatibleDC(&dc);
-	CBitmap memBmp;
-	memBmp.CreateCompatibleBitmap(&dc, client.Width(), client.Height());
-	CBitmap* pOldBmp = memDC.SelectObject(&memBmp);
-
-	Gdiplus::Graphics graphics(memDC.GetSafeHdc());
-	graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-	graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintClearTypeGridFit);
-	graphics.Clear(Gdiplus::Color(250, 250, 250));
-
-	int y = 15 - m_scrollOffset;
-	int width = client.Width() - 16 - 20;
-
-	if (m_messages)
-	{
-		CString lastDate = _T("");
-		for (const Message& msg : *m_messages)
-		{
-			CString currentDate = msg.GetFormattedTime();
-			if (currentDate != lastDate) {
-				DrawCenterTime(graphics, currentDate, y, width);
-				lastDate = currentDate;
-			}
-			DrawMessage(graphics, msg, y, width);
-		}
-	}
-
-	dc.BitBlt(0, 0, client.Width(), client.Height(), &memDC, 0, 0, SRCCOPY);
-	memDC.SelectObject(pOldBmp);
 }
 
 void ChatListStyle::DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr, int& y, int width)
@@ -263,9 +266,15 @@ void ChatListStyle::DrawCenterTime(Gdiplus::Graphics& g, const CString& timeStr,
 
 CString DownloadFile(const CString& url, const CString& localPath)
 {
+	std::filesystem::path assetDir("assets");
+	if (!std::filesystem::exists(assetDir)) {
+		std::filesystem::create_directory(assetDir);
+	}
+	CString assetLocalPath = _T("assets\\") + localPath;
+
 	CURL* curl = curl_easy_init();
 	FILE* fp = nullptr;
-	_tfopen_s(&fp, localPath, _T("wb"));
+	_tfopen_s(&fp, assetLocalPath, _T("wb"));
 
 	CString cleanUrl = url;
 	cleanUrl.Trim();
@@ -284,11 +293,11 @@ CString DownloadFile(const CString& url, const CString& localPath)
 	curl_easy_cleanup(curl);
 
 	if (res != CURLE_OK) {
-		_tremove(localPath);
+		_tremove(assetLocalPath);
 		return _T("");
 	}
 
-	return localPath;
+	return assetLocalPath;
 }
 
 void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y, int width)
@@ -300,7 +309,7 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	const int radius = 10;
 	const int avatarSize = 32;
 	const int avatarMargin = 8;
-	const int imageSize = 120;
+	const int imageSize = 90;
 	const int fileIconSize = 32;
 
 	CStringW content = msg.GetContent();
