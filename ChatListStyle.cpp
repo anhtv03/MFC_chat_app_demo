@@ -601,10 +601,10 @@ void ChatListStyle::DrawMessage(Gdiplus::Graphics& g, const Message& msg, int& y
 	}
 
 	//=============draw isSend===========
-	if (isMyMessage && !(content.IsEmpty() || images.empty() || files.empty())) {
+	if (isMyMessage && (!content.IsEmpty() || !images.empty() || !files.empty())) {
 		int statusX = x - statusIconSize - statusIconMargin;
 		int statusY = y + totalHeight - statusIconSize - 3;
-		DrawStatusIcon(g, msg.GetIsSend(), statusX, statusY);
+		DrawStatusIcon(g, isSend, statusX, statusY);
 	}
 
 	m_lastTime = currentTime;
