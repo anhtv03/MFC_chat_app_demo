@@ -1,4 +1,4 @@
-
+﻿
 // chat_app_demo.cpp : Defines the class behaviors for the application.
 //
 
@@ -10,6 +10,7 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include "homeDlg.h"
 
 
 // CLoginApp
@@ -57,7 +58,7 @@ BOOL CLoginApp::InitInstance()
 
 	// Create the shell manager, in case the dialog contains
 	// any shell tree view or shell list view controls.
-	CShellManager *pShellManager = new CShellManager;
+	CShellManager* pShellManager = new CShellManager;
 
 	// Activate "Windows Native" visual manager for enabling themes in MFC controls
 	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows));
@@ -71,13 +72,25 @@ BOOL CLoginApp::InitInstance()
 	// such as the name of your company or organization
 	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
 
+	//while (true) {
+	//	loginDlg dlg;
+	//	m_pMainWnd = &dlg;
+	//	if (dlg.DoModal() != IDOK) {
+	//		break;
+	//	}
+	//	m_pMainWnd = nullptr;
+
+	//	homeDlg homeDlg;
+	//	m_pMainWnd = &homeDlg;
+	//	homeDlg.DoModal();
+	//	m_pMainWnd = nullptr;
+	//}
+
 	loginDlg dlg;
-	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
 	if (nResponse == IDOK)
 	{
-		// TODO: Place code here to handle when the dialog is
-		//  dismissed with OK
+		
 	}
 	else if (nResponse == IDCANCEL)
 	{

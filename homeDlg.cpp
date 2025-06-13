@@ -125,6 +125,8 @@ BOOL homeDlg::OnInitDialog()
 	CImageList imageList;
 	imageList.Create(50, 50, ILC_COLOR32, 0, 10);
 	_idc_list_friend.SetImageList(&imageList, LVSIL_SMALL);
+	HWND hWnd = _idc_list_friend.GetSafeHwnd();
+	::SendMessage(hWnd, LVM_SETICONSPACING, 0, MAKELPARAM(0, 65));
 
 	if (getRequest(_T("/api/message/list-friend"), token, response, errorMessage)) {
 		if (response.contains("data") && response["data"].is_array()) {
@@ -134,7 +136,19 @@ BOOL homeDlg::OnInitDialog()
 			for (auto& item : data) {
 				CString name = Utf8ToCString(item["FullName"].get<std::string>());
 				CString friendId = Utf8ToCString(item["FriendID"].get<std::string>());
-				_idc_list_friend.AddFriend(name, friendId, localPath);
+				CString message = _T("");
+
+				if (item.contains("Content") && !item["Content"].is_null()) {
+					message = Utf8ToCString(item["Content"].get<std::string>());
+				}
+				else if (item.contains("Images") && item["Images"].is_array() && !item["Images"].empty()) {
+					message = _T("đã gửi ảnh.");
+				}
+				else if (item.contains("Files") && item["Files"].is_array() && !item["Files"].empty()) {
+					message = _T("đã gửi tệp đính kèm.");
+				}
+
+				_idc_list_friend.AddFriend(name, friendId, localPath, message);
 			}
 		}
 	}
@@ -179,6 +193,10 @@ void homeDlg::OnPaint()
 	}
 }
 
+void homeDlg::OnCancel() {
+	EndDialog(IDOK);
+}
+
 void homeDlg::OnNMDblclkListFriend(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
@@ -215,8 +233,8 @@ void homeDlg::OnEnChangeEdtSearch()
 
 	for (size_t i = 0; i < _idc_list_friend.m_Names.size(); ++i) {
 		CString name = _idc_list_friend.m_Names[i];
-		name.MakeLower(); 
-		if (name.Find(key) != -1) { 
+		name.MakeLower();
+		if (name.Find(key) != -1) {
 			int itemIndex = _idc_list_friend.InsertItem(_idc_list_friend.GetItemCount(), _idc_list_friend.m_Names[i]);
 			_idc_list_friend.SetItemData(itemIndex, i);
 		}

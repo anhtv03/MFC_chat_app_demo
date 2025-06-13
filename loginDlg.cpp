@@ -170,13 +170,15 @@ void loginDlg::OnBnClickedBtnLogin()
 	homeDlg homeDlg;
 	homeDlg.DoModal();
 	ShowWindow(SW_SHOW);
+
+	//EndDialog(IDOK);
 }
 
 void loginDlg::OnStnClickedTxtRegister()
 {
 	ShowWindow(SW_HIDE);
 	registerDlg registerDlg;
-	registerDlg.DoModal() == IDOK;
+	if(registerDlg.DoModal() == IDOK){}
 	ShowWindow(SW_SHOW);
 
 }

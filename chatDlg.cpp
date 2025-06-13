@@ -27,7 +27,6 @@ chatDlg::chatDlg(CString friendId, CString friendName, CWnd* pParent /*=nullptr*
 
 chatDlg::~chatDlg()
 {
-	//	KillTimer(1);
 	curl_global_cleanup();
 }
 
@@ -127,14 +126,6 @@ HBRUSH chatDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void chatDlg::OnOK()
 {
 	OnBnClickedBtnSend();
-}
-
-void chatDlg::OnTimer(UINT_PTR nIDEvent)
-{
-	/*if (nIDEvent == 1) {
-		LoadChatMessages();
-	}
-	CDialogEx::OnTimer(nIDEvent);*/
 }
 
 void chatDlg::OnBnClickedBtnSend()
